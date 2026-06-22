@@ -15,6 +15,16 @@ It bundles four things that are really one workflow:
 > answer grill cards in the rendered doc. Agents drive the `htw` CLI — it's a terse,
 > deterministic, machine-readable API, not a human UX.
 
+## What it looks like
+
+Real rendered output — the flagship PRD (stage bar, decisions, scope, tabs) and a scoping
+draft with open, answerable grill cards. Everything below is one tiny `.doc.md` source; all
+the polish is the shared theme. See the full [examples gallery](examples/GALLERY.md).
+
+| PRD in execution                                                                                                       | Scoping draft — open grill cards                                                                                       |
+| ---------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------- |
+| [![PRD in execution](examples/screenshots/prd-in-execution.png)](examples/GALLERY.md#1-prd-in-execution--the-flagship) | [![Open grill cards](examples/screenshots/grill-cards.png)](examples/GALLERY.md#2-scoping-draft--the-grill-mid-flight) |
+
 ## Quickstart
 
 ```bash
@@ -27,6 +37,31 @@ npx github:aneym/how-to-work serve --answer-gate --port 8765
 ```
 
 The package is **zero runtime dependencies** — Node built-ins + ESM only. Node ≥ 18.
+
+## Examples
+
+Four real, end-to-end example docs — one per lifecycle stage — live in
+[`examples/`](examples/), each with a screenshot of its gorgeous rendered output in the
+**[gallery](examples/GALLERY.md)**. They thread together one product story (a feature-flag
+platform) so you can watch a single idea move through the whole lifecycle:
+
+| Example                                                       | Stage         | Shows                                                                 |
+| ------------------------------------------------------------- | ------------- | --------------------------------------------------------------------- |
+| [`working-doc.doc.md`](examples/working-doc.doc.md)           | Working doc   | The lightest entry point — a pre-grill thinking surface.              |
+| [`scoping-draft.doc.md`](examples/scoping-draft.doc.md)       | Draft PRD     | Open, answerable `:::questions` grill cards + the answer gate.        |
+| [`prd-in-execution.doc.md`](examples/prd-in-execution.doc.md) | In execution  | The flagship — stage bar, decisions, scope, PRD/Progress/Ledger tabs. |
+| [`research-report.doc.md`](examples/research-report.doc.md)   | Done (report) | Callouts, a comparison table, and a bespoke SVG diagram.              |
+
+```bash
+# render + browse them all
+npx github:aneym/how-to-work render examples/prd-in-execution.doc.md
+npx github:aneym/how-to-work register --all
+npx github:aneym/how-to-work index
+npx github:aneym/how-to-work serve --answer-gate
+```
+
+See the **[full gallery →](examples/GALLERY.md)** for screenshots of every example (light +
+dark mode, the Progress/Ledger tabs, and the lifecycle dashboard).
 
 ## The CLI (`htw`)
 
