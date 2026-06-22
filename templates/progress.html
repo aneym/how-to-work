@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Progress — component reference</title>
+    <!-- Reference markup for the :::progress block + stage bar. -->
+    <link rel="stylesheet" href="theme.css" />
+  </head>
+  <body data-doc-title="Progress reference">
+    <main>
+      <header>
+        <a class="back" href="#">&larr; Docs</a>
+        <h1>Progress</h1>
+        <p class="lede">Overall card with a percent bar, then sub-cards.</p>
+      </header>
+
+      <section data-doc-section="progress">
+        <h2>Percent bar</h2>
+        <section class="card">
+          <h3>Overall</h3>
+          <div class="bar" aria-label="62 percent complete">
+            <div class="fill" style="width: 62%"></div>
+          </div>
+          <p class="small" style="margin-top: 8px">
+            Theme + components landed; docs and the render eval remain.
+          </p>
+        </section>
+        <div class="grid" style="margin-top: 12px">
+          <div class="card"><h3>Landed</h3><p>Walnut tokens, baked-in polish, templates.</p></div>
+          <div class="card"><h3>In flight</h3><p>components.md, tokens.md, gallery.</p></div>
+          <div class="card"><h3>Next</h3><p>Render eval + themeTokens re-skin.</p></div>
+        </div>
+      </section>
+
+      <section data-doc-section="stage">
+        <h2>Stage bar (lifecycle)</h2>
+        <p class="small">
+          PRDs show this monochrome segmented indicator instead of a percent.
+        </p>
+        <div class="stageline" role="group" aria-label="Stage 5 of 6: In execution">
+          <span class="stagebar">
+            <i class="seg done" aria-hidden="true"></i>
+            <i class="seg done" aria-hidden="true"></i>
+            <i class="seg done" aria-hidden="true"></i>
+            <i class="seg done" aria-hidden="true"></i>
+            <i class="seg current" aria-hidden="true"></i>
+            <i class="seg todo" aria-hidden="true"></i>
+          </span>
+          <span class="stagestatus"
+            ><b>In execution</b><span class="stagestep">5 / 6</span></span
+          >
+        </div>
+      </section>
+    </main>
+  </body>
+</html>

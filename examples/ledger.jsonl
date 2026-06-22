@@ -1,0 +1,4 @@
+{"ts":"2026-06-22T09:00:00Z","event":"refactor theme to walnut","actor":"maker","summary":"Swapped the orange Raw-Concrete ramp for warm walnut; tokenized radius, on-accent and shadow-border depth."}
+{"ts":"2026-06-22T10:30:00Z","event":"fix tab focus a11y regression","actor":"maker","summary":"Replaced outline:none / box-shadow:none with a keyboard-only :focus-visible accent ring on tabs and grill buttons."}
+{"ts":"2026-06-22T12:15:00Z","event":"embed self-hosted fonts","actor":"maker","summary":"Space Grotesk + Public Sans baked in as base64 WOFF2 data URIs for zero-FOUT, fully offline docs."}
+{"ts":"2026-06-22T14:45:00Z","event":"wire two-tier theme override","actor":"maker","summary":"themeFile full-replaces; themeTokens concatenates a :root patch onto the base — a 15-line block re-skins the whole surface."}

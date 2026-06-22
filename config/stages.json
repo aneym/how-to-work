@@ -1,0 +1,36 @@
+{
+  "sequence": [
+    "Working doc",
+    "Draft PRD",
+    "Ready for approval",
+    "Approved",
+    "In execution",
+    "Done"
+  ],
+  "aliases": {
+    "working doc": 0,
+    "working": 0,
+    "idea": 0,
+    "draft": 1,
+    "draft prd": 1,
+    "scoping": 1,
+    "ready for approval": 2,
+    "ready": 2,
+    "review": 2,
+    "approved": 3,
+    "in execution": 4,
+    "executing": 4,
+    "in progress": 4,
+    "in-progress": 4,
+    "build": 4,
+    "building": 4,
+    "active": 4,
+    "done": 5,
+    "complete": 5,
+    "completed": 5,
+    "implemented": 5,
+    "shipped": 5,
+    "archive": 5,
+    "archived": 5
+  }
+}

@@ -1,0 +1,15 @@
+{
+  "engineVersion": "0.1.0",
+  "brandName": "Docs",
+  "doc": {
+    "overlayDir": ".agents/skill-config/doc",
+    "themeFile": null,
+    "catalogPath": "docs/catalog.json",
+    "sourcesDir": "docs/sources",
+    "prdsDir": "docs/prds",
+    "plansDir": "docs/plans",
+    "docsIndexRoute": "/prds",
+    "stagesPath": null
+  },
+  "answerGate": { "base": "/api/hwq", "mode": "none" }
+}

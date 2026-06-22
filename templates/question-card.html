@@ -1,0 +1,84 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Question cards — component reference</title>
+    <!-- Reference markup for the interactive :::questions grill cards. The live
+         behavior (Approve/Submit/Copy, polling, collapse) is wired by the
+         engine's TAB_SCRIPT; this static reference shows the markup + theme. -->
+    <link rel="stylesheet" href="theme.css" />
+  </head>
+  <body data-doc-title="Question cards reference">
+    <main>
+      <header>
+        <a class="back" href="#">&larr; Docs</a>
+        <h1>Question / grill cards</h1>
+        <p class="lede">
+          Open questions get live review controls and feed a sticky action bar.
+        </p>
+      </header>
+
+      <section data-doc-section="questions">
+        <h2>Open (interactive)</h2>
+        <div class="qreview" data-qstack>
+          <div class="qasking" data-qasking>
+            <span class="qdot"></span>
+            <span data-qasking-text>The agent is waiting for your answers — review and hit Submit.</span>
+          </div>
+          <div class="qbar" data-qbar>
+            <span class="qcount" data-qcount>0 / 2 answered</span>
+            <div class="qbar-actions">
+              <button type="button" class="qclear" data-qclear>Clear</button>
+              <button type="button" class="qcopy" data-qcopy disabled>Copy answers</button>
+              <button type="button" class="qsubmit" data-qsubmit disabled>Submit to agent</button>
+            </div>
+          </div>
+          <div class="qstack">
+            <article class="qcard" data-qcard data-qid="Q1" data-qtitle="Ship walnut as the default?" data-qtagopen="theme">
+              <div class="qhead">
+                <span class="qtitle"><span class="qid">Q1.</span> Ship walnut as the default?</span>
+                <span class="qtag" data-qtag>theme</span>
+              </div>
+              <p>Walnut reads editorial; the louder orange stays a repo override.</p>
+              <p><strong>Recommendation:</strong> Yes — walnut is the neutral default.</p>
+              <div class="qactions" data-qactions>
+                <button type="button" class="qbtn qapprove" data-decide="approve" aria-pressed="false">Approve</button>
+                <button type="button" class="qbtn qreject" data-decide="disapprove" aria-pressed="false">Disapprove</button>
+              </div>
+              <textarea class="qcomment" data-qcomment rows="2" placeholder="Comment / custom answer…"></textarea>
+            </article>
+            <article class="qcard" data-qcard data-qid="Q2" data-qtitle="Embed the fonts?" data-qtagopen="fonts">
+              <div class="qhead">
+                <span class="qtitle"><span class="qid">Q2.</span> Embed the fonts as data URIs?</span>
+                <span class="qtag" data-qtag>fonts</span>
+              </div>
+              <p>Trade per-doc weight for zero-FOUT, offline, path-agnostic rendering.</p>
+              <p><strong>Recommendation:</strong> Yes — self-contained beats a font request.</p>
+              <div class="qactions" data-qactions>
+                <button type="button" class="qbtn qapprove" data-decide="approve" aria-pressed="false">Approve</button>
+                <button type="button" class="qbtn qreject" data-decide="disapprove" aria-pressed="false">Disapprove</button>
+              </div>
+              <textarea class="qcomment" data-qcomment rows="2" placeholder="Comment / custom answer…"></textarea>
+            </article>
+          </div>
+        </div>
+
+        <h2>Resolved (collapsed)</h2>
+        <details class="qresolved">
+          <summary>1 question resolved &#10003;</summary>
+          <div class="qstack">
+            <article class="qcard" data-qcard data-qid="Q0">
+              <div class="qhead">
+                <span class="qtitle"><span class="qid">Q0.</span> Refactor the proven theme?</span>
+                <span class="qtag">approach</span>
+              </div>
+              <p>Refactor vs author fresh.</p>
+              <p class="qanswer"><strong>Answer:</strong> Refactor the proven theme.css and swap the ramp.</p>
+            </article>
+          </div>
+        </details>
+      </section>
+    </main>
+  </body>
+</html>

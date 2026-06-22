@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Report — component reference</title>
+    <!-- Reference markup for a flat report: header + callout + cards. -->
+    <link rel="stylesheet" href="theme.css" />
+  </head>
+  <body data-doc-title="Report reference">
+    <main>
+      <header>
+        <a class="back" href="#">&larr; Docs</a>
+        <h1>Report title</h1>
+        <p class="lede">
+          A flat report leads with the conclusion, then supporting detail.
+        </p>
+        <div class="chips">
+          <span class="chip">report</span>
+          <span class="chip">implemented</span>
+          <span class="chip">2026-06-22</span>
+        </div>
+      </header>
+
+      <section data-doc-section="verdict">
+        <h2>Verdict</h2>
+        <div class="callout">
+          <strong style="color: var(--green)">Verdict:</strong> the gorgeous
+          default ships — refactored proven theme, walnut ramp, baked-in polish.
+        </div>
+      </section>
+
+      <section data-doc-section="findings">
+        <h2>Findings</h2>
+        <div class="grid">
+          <div class="card"><h3>Shadows</h3><p>Shadow-as-border depth with a hover lift.</p></div>
+          <div class="card"><h3>Motion</h3><p>Staggered enter under a reduced-motion guard.</p></div>
+          <div class="card"><h3>A11y</h3><p>Keyboard-only accent focus rings on tabs and buttons.</p></div>
+        </div>
+      </section>
+    </main>
+  </body>
+</html>

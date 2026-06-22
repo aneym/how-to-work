@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Working doc — component reference</title>
+    <!-- Reference markup for a flat (non-tabbed) working doc. -->
+    <link rel="stylesheet" href="theme.css" />
+  </head>
+  <body data-doc-title="Working doc reference">
+    <main>
+      <header>
+        <a class="back" href="#">&larr; Docs</a>
+        <h1>Working doc title</h1>
+        <p class="lede">
+          A flat doc: header, then sections in a single flow — no tabs.
+        </p>
+        <div class="chips">
+          <span class="chip">working-doc</span>
+          <span class="chip">scoping</span>
+          <span class="chip">2026-06-22</span>
+        </div>
+      </header>
+
+      <section data-doc-section="context">
+        <h2>Context</h2>
+        <p>
+          Body prose supports <strong>bold</strong>, <code>inline code</code>,
+          and <a href="#">links</a>. Headings use Space Grotesk; body uses
+          Public Sans.
+        </p>
+        <ul>
+          <li>Unordered items wrap with <code>text-wrap: pretty</code>.</li>
+          <li>Data figures use tabular numerals: 1,024 · 2,048 · 4,096.</li>
+        </ul>
+      </section>
+
+      <section data-doc-section="rows">
+        <h2>Definition rows</h2>
+        <div class="rows">
+          <div class="row"><div class="label">Source of truth</div><div>templates/theme.css</div></div>
+          <div class="row"><div class="label">Accent</div><div><code>#6f4d2f</code> walnut</div></div>
+        </div>
+      </section>
+    </main>
+  </body>
+</html>

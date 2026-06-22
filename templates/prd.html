@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>PRD — component reference</title>
+    <!-- Reference markup for the PRD skeleton. The engine emits this; open in a
+         browser to preview the walnut theme. Do not wire into the renderer. -->
+    <link rel="stylesheet" href="theme.css" />
+  </head>
+  <body data-doc-title="PRD reference">
+    <main>
+      <header>
+        <a class="back" href="#">&larr; Docs</a>
+        <h1>PRD title</h1>
+        <p class="lede">
+          One-sentence lede from the frontmatter summary — what this PRD is and
+          why it matters.
+        </p>
+        <div class="stageline" role="group" aria-label="Stage 5 of 6: In execution">
+          <span class="stagebar">
+            <i class="seg done" aria-hidden="true"></i>
+            <i class="seg done" aria-hidden="true"></i>
+            <i class="seg done" aria-hidden="true"></i>
+            <i class="seg done" aria-hidden="true"></i>
+            <i class="seg current" aria-hidden="true"></i>
+            <i class="seg todo" aria-hidden="true"></i>
+          </span>
+          <span class="stagestatus"
+            ><b>In execution</b><span class="stagestep">5 / 6</span></span
+          >
+        </div>
+        <div class="chips">
+          <span class="chip">prd</span>
+          <span class="chip">active</span>
+          <span class="chip">2026-06-22</span>
+        </div>
+        <div class="tabs" role="tablist" aria-label="PRD sections">
+          <button class="tab" role="tab" aria-selected="true" data-tab="prd">PRD</button>
+          <button class="tab" role="tab" aria-selected="false" data-tab="progress">Progress</button>
+          <button class="tab" role="tab" aria-selected="false" data-tab="ledger">Ledger</button>
+        </div>
+      </header>
+
+      <section id="prd" class="panel active" role="tabpanel">
+        <div class="callout">
+          <strong>Thesis:</strong> the body before the first <code>@tab</code> is
+          the main tab.
+        </div>
+        <section data-doc-section="cards">
+          <h2>Cards</h2>
+          <div class="grid">
+            <div class="card"><h3>One</h3><p>Staggered enter, hover lift.</p></div>
+            <div class="card"><h3>Two</h3><p>Shadow-as-border depth.</p></div>
+            <div class="card"><h3>Three</h3><p>Token-driven, re-skinnable.</p></div>
+          </div>
+        </section>
+      </section>
+
+      <section id="progress" class="panel" role="tabpanel">
+        <section class="card"><h3>Overall</h3><p class="small">Progress tab — auto-generated from state.json for PRDs.</p></section>
+      </section>
+
+      <section id="ledger" class="panel" role="tabpanel">
+        <div class="timeline">
+          <div class="event"><strong>Event</strong><p>Ledger tab — auto-generated from ledger.jsonl.</p><p class="small">2026-06-22 · maker</p></div>
+        </div>
+      </section>
+    </main>
+  </body>
+</html>

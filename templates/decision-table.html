@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Decision table — component reference</title>
+    <!-- Reference markup for :::decisions — definition rows with a tone span
+         on the value (.status = green "Decided", .warn = amber "Open"). -->
+    <link rel="stylesheet" href="theme.css" />
+  </head>
+  <body data-doc-title="Decision table reference">
+    <main>
+      <header>
+        <a class="back" href="#">&larr; Docs</a>
+        <h1>Decision table</h1>
+        <p class="lede">
+          <code>Decided</code> reads green; <code>Open</code> reads amber.
+        </p>
+      </header>
+
+      <section data-doc-section="decisions">
+        <h2>Decisions</h2>
+        <div class="rows">
+          <div class="row">
+            <div class="label">Default theme</div>
+            <div><span class="status">Decided</span> Warm walnut editorial</div>
+          </div>
+          <div class="row">
+            <div class="label">Font delivery</div>
+            <div><span class="status">Decided</span> Self-hosted base64 WOFF2 data URIs</div>
+          </div>
+          <div class="row">
+            <div class="label">House radius</div>
+            <div><span class="status">Decided</span> 0 — sharp rectangles</div>
+          </div>
+          <div class="row">
+            <div class="label">Mono face</div>
+            <div><span class="warn">Open</span> System mono vs self-hosted Spline Sans Mono</div>
+          </div>
+        </div>
+      </section>
+    </main>
+  </body>
+</html>
