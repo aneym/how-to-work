@@ -10,3 +10,4 @@ the how-we-work PRD lifecycle, and the `.doc.md` → HTML render engine.
 - Portable loopback answer-gate (`none` / `local` / `custom` via an `onAnswer` callback).
 - Per-repo config resolution: `.agents/skill-config/workflow` → `.claude/skill-config/...` → bundled defaults.
 - Self-contained HTML output (PRD / Progress / Ledger tabs, stage bar, interactive grill cards, lifecycle dashboard).
+- `htw new` accepts the documented positional form (`new <kind> <slug>`) in addition to `--kind`/`--slug` flags.

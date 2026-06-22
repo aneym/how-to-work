@@ -1691,8 +1691,12 @@ register every durable doc; keep PRD machine truth in state.json/ledger.jsonl.`;
 }
 
 function cmdNew(args) {
-  const kind = argValue(args, "--kind");
-  const slug = argValue(args, "--slug");
+  // Accept the documented positional form (`new <kind> <slug>`) as well as the
+  // explicit flags. htw --help advertises positional args, but only flags worked
+  // before — so the documented form failed for every cross-project consumer.
+  const positional = args.filter((a) => !a.startsWith("--"));
+  const kind = argValue(args, "--kind") || positional[0];
+  const slug = argValue(args, "--slug") || positional[1];
   const title = argValue(args, "--title") || humanize(slug || "");
   if (!KINDS.includes(kind))
     die(`new: --kind must be one of ${KINDS.join(", ")}`);
