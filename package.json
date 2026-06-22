@@ -4,7 +4,7 @@
   "description": "How To Work — one zero-dependency engine for the grill protocol, scoping, the how-we-work PRD lifecycle, and the /doc render engine.",
   "type": "module",
   "bin": {
-    "htw": "./bin/htw.mjs"
+    "htw": "bin/htw.mjs"
   },
   "exports": {
     ".": "./src/doc-kit.mjs",
