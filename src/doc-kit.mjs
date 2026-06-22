@@ -588,7 +588,12 @@ function die(msg) {
 // ---------------------------------------------------------------------------
 
 function parseSource(srcPath) {
-  const raw = readFileSync(join(ROOT, srcPath), "utf8");
+  // Honor absolute paths (agents naturally pass them) — join(ROOT, abs) would
+  // double the path and ENOENT-crash. Resolve like readText (SEAM-4), and turn
+  // a missing file into a clean die() instead of an unhandled stack trace.
+  const onDisk = isAbsolute(srcPath) ? srcPath : join(ROOT, srcPath);
+  if (!existsSync(onDisk)) die(`${srcPath}: no such file`);
+  const raw = readFileSync(onDisk, "utf8");
   const lines = raw.split("\n");
   if (lines[0].trim() !== "---")
     die(`${srcPath}: must start with a --- frontmatter fence`);
@@ -879,8 +884,13 @@ function renderResources(rawLines) {
     if (!line.trim()) continue;
     const indented = /^\s{2,}\S/.test(line);
     const pair = splitRow(line.trim());
-    if (!pair) continue;
-    const [label, href] = pair;
+    // A bare line with no "::" is an unlinked parent label — plain text, and a
+    // valid anchor for indented children. Previously these were silently
+    // dropped (splitRow -> null -> continue), which orphaned the first child as
+    // a top-level row and silently lost the rest. Only skip a bare line when it
+    // is indented (a malformed child has no href to link).
+    if (!pair && indented) continue;
+    const [label, href] = pair || [line.trim(), ""];
     if (indented && parent) {
       parent.children.push({ label, href });
     } else {
@@ -908,7 +918,14 @@ function renderQuestions(rawLines) {
   // Cards without a recorded `answer` are still open => they get live review
   // controls (Approve / Disapprove + comment) and feed the Copy-answers bar.
   const answerableCount = records.filter((q) => !q.answer).length;
-  const inner = records
+  // Highest-value-at-top: open/unanswered cards render first, resolved
+  // (recorded answer) cards demote to the bottom — not authoring order. Stable
+  // within each group so authoring order is preserved among peers.
+  const ordered = [
+    ...records.filter((q) => !q.answer),
+    ...records.filter((q) => q.answer),
+  ];
+  const inner = ordered
     .map((q) => {
       const id = q.id ? `<span class="qid">${esc(q.id)}.</span> ` : "";
       const tag = q.tag ? `<span class="qtag" data-qtag>${esc(q.tag)}</span>` : "";
@@ -1308,7 +1325,7 @@ ${BACK_LINK}
   let state = null;
   let ledgerText = null;
   if (data.kind === KIND_PRD) {
-    const dir = dirname(join(ROOT, srcPath));
+    const dir = dirname(isAbsolute(srcPath) ? srcPath : join(ROOT, srcPath));
     state = readJsonMaybe(join(dir, data.statePath || "state.json"));
     const lp = join(dir, data.ledgerPath || "ledger.jsonl");
     if (existsSync(lp)) ledgerText = readFileSync(lp, "utf8");
@@ -1701,6 +1718,10 @@ function cmdNew(args) {
   if (!KINDS.includes(kind))
     die(`new: --kind must be one of ${KINDS.join(", ")}`);
   if (!slug) die("new: --slug is required");
+  if (!/^[a-z0-9][a-z0-9-]*$/.test(slug))
+    die(
+      `new: --slug must be kebab-case [a-z0-9][a-z0-9-]* (lowercase letters, digits, hyphens; start alphanumeric), got "${slug}"`,
+    );
   const out =
     kind === KIND_PRD
       ? `${PRDS_DIR}/${slug}/index.doc.md`
@@ -1973,7 +1994,7 @@ function cmdVerify(args) {
     }
     // prd preserved files
     if (data.kind === KIND_PRD) {
-      const dir = dirname(join(ROOT, src));
+      const dir = dirname(isAbsolute(src) ? src : join(ROOT, src));
       for (const f of [
         data.statePath || "state.json",
         data.ledgerPath || "ledger.jsonl",

@@ -18,9 +18,9 @@ This skill drives the **how-to-work** engine. Before scaffolding, grilling, rend
    2. `.claude/skill-config/workflow/config.json` — legacy location
    3. `.agents/skill-config/doc/config.json` / `.claude/skill-config/doc/config.json` — legacy split (back-compat fallback)
    4. the engine's bundled `config/defaults.json` — neutral generic defaults when the repo ships none
-2. Validate / sync: run `npx how-to-work@latest check` (add `--online` to compare against the latest published engine). It checks engine-version drift and config-schema drift and prints the exact `init` / `init --migrate` fix command. Run the printed command when it exits non-zero. If there is no config yet, `npx how-to-work@latest init` stamps one.
+2. Validate / sync: run `npx github:aneym/how-to-work check` (add `--online` to compare against the latest published engine). It checks engine-version drift and config-schema drift and prints the exact `init` / `init --migrate` fix command. Run the printed command when it exits non-zero. If there is no config yet, `npx github:aneym/how-to-work init` stamps one. (These skills invoke the GitHub form `npx github:aneym/how-to-work …` because the package is not yet published to npm; once it is, this becomes `npx how-to-work@latest …`.)
 
-The keys this workflow reads: `brandName`; `doc.{sourcesDir, prdsDir, plansDir, catalogPath, docsIndexRoute, themeFile, stagesPath}`; `answerGate.{base, mode}`; `canonicalUrlBase`; `devUrlBase`; `serve.{command, port}`; and the optional agent-guidance fields `workOsLinking`, `dataSpine`, `executionEnv`, `styleName`, `styleSummary`, `livingExamples`. Generic semantics belong in this skill; repo-specific output paths, docs host, catalog adapter, examples, validation commands, theme tokens, and execution environment belong in that in-repo config bundle. `npx how-to-work@latest init` writes it — edit the config rather than forking this skill.
+The keys this workflow reads: `brandName`; `doc.{sourcesDir, prdsDir, plansDir, catalogPath, docsIndexRoute, themeFile, stagesPath}`; `answerGate.{base, mode}`; `canonicalUrlBase`; `devUrlBase`; `serve.{command, port}`; and the optional agent-guidance fields `workOsLinking`, `dataSpine`, `executionEnv`, `styleName`, `styleSummary`, `livingExamples`. Generic semantics belong in this skill; repo-specific output paths, docs host, catalog adapter, examples, validation commands, theme tokens, and execution environment belong in that in-repo config bundle. `npx github:aneym/how-to-work init` writes it — edit the config rather than forking this skill.
 
 Never hardcode a workspace's brand, host, paths, ports, data spine, or commands. Read them from config; fall back to the engine's neutral defaults only when no config exists.
 
@@ -47,16 +47,16 @@ Default package:
 
 ```text
 docs/prds/<slug>/        # <slug> under config doc.prdsDir
-  index.html      # author-facing surface: PRD / Progress / Ledger tabs
-  state.json      # current machine-readable PRD/workloop state
-  ledger.jsonl    # reverse-chron PRD/workloop event history
-  resources.json  # artifact/resource tree
-  artifacts/
-  workers/
-  checks/
+  index.doc.md    # semantic source        (created by `new`)
+  state.json      # machine-readable state  (seeded by `new`)
+  ledger.jsonl    # reverse-chron events     (seeded by `new`)
+  index.html      # author-facing surface: PRD / Progress / Ledger tabs (emitted by `render`)
+  artifacts/      # created during execution (send-it), not by new/render
+  workers/        # created during execution (send-it), not by new/render
+  checks/         # created during execution (send-it), not by new/render
 ```
 
-Scaffold it with `npx how-to-work@latest new prd <slug>`; render with `render`; update the catalog with `register --all`.
+Scaffold it with `npx github:aneym/how-to-work new prd <slug>` (writes `index.doc.md` + empty `state.json`/`ledger.jsonl`); render with `render` (emits `index.html`); update the catalog with `register --all`. The `artifacts/`, `workers/`, and `checks/` subdirs are not created by `new`/`render` — they appear during execution. The resource/artifact tree is authored as a `:::resources` block inside `index.doc.md`; there is no separate `resources.json`.
 
 App features with user-created durable data should use the repo's configured durable data spine (config `dataSpine`) from v1. `state.json` and `ledger.jsonl` track PRD/workloop execution; they are not the app database. `localStorage` is acceptable only for visual spikes or disposable review state.
 
@@ -79,7 +79,7 @@ When the author says a PRD "needs to be reframed after we checkout" a linked PR,
 - **Progress tab:** current state, lifecycle stage (phase), task/resource tree, worker runs, blockers, next action.
 - **Ledger tab:** reverse-chron events from the first working-doc decision through execution closeout.
 - **Design system:** the engine owns the PRD shell and theme — warm neutral background, compact header, chips, exactly PRD/Progress/Ledger tabs, no blue focus ring, `1/2/3` keyboard tab shortcuts, question cards, the stage bar (lifecycle stage indicator), and the left-rail dot ledger timeline. The repo's `doc.themeFile` wins when set; otherwise the bundled default theme applies. Do not generate bespoke one-off PRD themes or alternate ledger cards.
-- **Docs index:** a lifecycle dashboard for working artifacts, with filters/counts for Active, Scoping, Ideas, and Archive. Active work should surface ahead of merely recent scoping docs. Regenerate it with `npx how-to-work@latest index`.
+- **Docs index:** a lifecycle dashboard for working artifacts, with filters/counts for Active, Scoping, Ideas, and Archive. Active work should surface ahead of merely recent scoping docs. Regenerate it with `npx github:aneym/how-to-work index`.
 - **Main workflow surface:** route bot-level / cross-repo / personal How-We-Work docs and PRDs to the repo your config designates as the workflow home; put product/repo-specific PRDs in the owning repo. Do not pick a destination solely because it is the current working directory.
 
 Progress is measured by lifecycle **stage** — the canonical sequence Working doc → Draft PRD → Ready for approval → Approved → In execution → Done (sourced from config `doc.stagesPath`, or the engine's built-in 6-stage lifecycle when null, and a doc's frontmatter `stage`) — rendered as a monochrome segmented stage bar, or a circular stage ring in tight spaces like a sidebar; a percent-complete is deprecated and at most secondary.
@@ -92,9 +92,9 @@ The engine's PRD shell is canonical for this class of docs. The engine emits it 
 
 - Do not wrap question cards inside each other. Each question is a sibling `<article class="qcard">...</article>` inside one `<div class="qstack">`.
 - Do not preserve a Markdown body `# Title` inside the PRD tab. The shell header owns the title; strip the first H1 from rendered body content.
-- Use explicit containers: `<section class="questions-block">`, `<section class="prd-body">`, `<section id="progress">`, and `<section id="ledger">`.
+- The engine's containers are: `<div class="qreview" data-qstack>` (wrapping the `<div class="qstack">` of question cards), `<section id="progress">`, and `<section id="ledger">`. (There is no `questions-block` or `prd-body` class — verify against `qreview`/`data-qstack`, not those names.)
 - Ledger uses the left-rail dot timeline: `.timeline` with sibling `.event` blocks. Do not use card-style ledger articles unless the author approves a redesign.
-- Verify generated HTML mechanically (`npx how-to-work@latest verify`): no `</div><article class="qcard">`, no `<h1>` immediately after the questions block, all three tab buttons exist, and the served URL returns `200 text/html`.
+- Verify generated HTML mechanically (`npx github:aneym/how-to-work verify`): no `</div><article class="qcard">`, no `<h1>` immediately after the questions block, all three tab buttons exist, and the served URL returns `200 text/html`.
 
 ## Grill protocol
 
@@ -103,7 +103,7 @@ Put `Questions blocking the PRD` near the top of the PRD tab. The full protocol 
 - Batch only independent questions; dependent questions happen one at a time.
 - Each card includes Problem, Question, and a Recommendation; stable IDs `Q1`, `Q2`, `Q3`.
 - **Never end a recommendation with a "Reply X to accept / X &lt;custom&gt;" line** — the recommendation ends with the actual recommendation. Cards are interactive (approve / disapprove + a custom answer per card) and auto-generate the reply shorthand via the Copy-answers button.
-- **After posting questions, START THE ANSWER GATE — never make the author copy-paste.** Run `npx how-to-work@latest grill ask --doc <slug> --base <answerGate.base>` (foreground when you can wait, else background). It opens the ask so the doc's question section lights up ("the agent is waiting for your answers"), polls the gate, and hands you the answers the instant the author clicks "Submit to agent" — over loopback or a tunnel alike. Gate behavior follows `answerGate.mode`: in `local`/`hermes` mode, posting questions without starting the gate strands the submitted answers in the store (recover via `GET <answerGate.base>/result?key=<docKey>`); in `none` mode there is no server, so the Copy-answers button is the equivalent and a missing live gate is expected, not a bug.
+- **After posting questions, START THE ANSWER GATE — never make the author copy-paste.** Run `npx github:aneym/how-to-work grill ask --doc <slug> --base <answerGate.base>` (foreground when you can wait, else background). It opens the ask so the doc's question section lights up ("the agent is waiting for your answers"), polls the gate, and hands you the answers the instant the author clicks "Submit to agent" — over loopback or a tunnel alike. Gate behavior follows `answerGate.mode`: in `local`/`custom` mode, posting questions without starting the gate strands the submitted answers in the store (recover via `GET <answerGate.base>/result?key=<docKey>`); in `none` mode there is no server, so the Copy-answers button is the equivalent and a missing live gate is expected, not a bug.
 - After the author answers, remove resolved cards from the top queue, write decisions into Decisions/ADR, and append ledger events.
 - **Update every visible surface in the same pass.** State/ledger alone are not enough. If the author answered questions, the HTML PRD must not still show `open` badges or stale next actions. Update the `.doc.md` source, `state.json`, `ledger.jsonl`, the rendered `index.html`, and the docs catalog together, then verify the served page.
 - **A custom or "idk" answer is not a close — refine, then re-grill.** Fold the intent into a sharpened recommendation and re-present that one card; pick the _minimal_ option that still makes the next action obvious. Only move a card into `:::decisions` (`[Decided <date>]`) once it is genuinely settled.
@@ -175,7 +175,7 @@ The send-it loop drives the final goal inside send-it; it does not replace PRD/p
 ## Serving and repo routing
 
 - Docs should be automatically served. Before closeout, verify the browser-openable URL, not just the filesystem path.
-- Final replies put the clickable web URL first and the local path second. Build the URL from `canonicalUrlBase` + the catalog path (e.g. `<canonicalUrlBase>/docs/prds/<slug>/`); use the local/dev URL (`devUrlBase`, or `npx how-to-work@latest serve`) when no public host is configured. If no served URL exists, say that explicitly and treat serving as a blocker/follow-up, not a normal closeout.
+- Final replies put the clickable web URL first and the local path second. Build the URL from `canonicalUrlBase` + the catalog path (e.g. `<canonicalUrlBase>/docs/prds/<slug>/`); use the local/dev URL (`devUrlBase`, or `npx github:aneym/how-to-work serve`) when no public host is configured. If no served URL exists, say that explicitly and treat serving as a blocker/follow-up, not a normal closeout.
 - Put cross-repo / personal / agent-workflow docs on the configured workflow home; put product/repo-specific PRDs and reports in the owning repo's docs package and docs host. The workflow home may index or link those repo-owned docs.
 - If asked to scope `/doc`, `/how-we-work`, agent-workflow docs, or workflow infrastructure while the shell is sitting in another checkout, route to the configured workflow home by default — not to the current working directory solely because that is where you are.
 

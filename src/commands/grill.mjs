@@ -213,13 +213,17 @@ export async function run({ root, args }) {
     return 3;
   }
 
+  const timeoutLabel =
+    timeoutMs < 60000
+      ? Math.max(1, Math.round(timeoutMs / 1000)) + "s"
+      : Math.round(timeoutMs / 60000) + "m";
   process.stderr.write(
     "htw grill: ask open for '" +
       key +
       "' — doc is lit up" +
       (noWait
         ? "; opened in the background.\n"
-        : ", waiting for submission (timeout " + Math.round(timeoutMs / 60000) + "m).\n"),
+        : ", waiting for submission (timeout " + timeoutLabel + ").\n"),
   );
 
   if (noWait) {

@@ -25,7 +25,7 @@ The deeper job of `/doc` is knowledge compilation: turn evidence, code reading, 
    3. `.agents/skill-config/doc/config.json` — legacy split (back-compat fallback)
    4. `.claude/skill-config/doc/config.json` — legacy split (back-compat fallback)
    5. the engine's bundled `config/defaults.json` — neutral generic defaults when the repo ships none
-2. Validate / sync: run `npx how-to-work@latest check` (add `--online` to compare against the latest published engine). It checks engine-version drift and config-schema drift and prints the exact `init` / `init --migrate` fix command. Run the printed command before proceeding when it exits non-zero. If there is no config yet, `npx how-to-work@latest init` stamps one.
+2. Validate / sync: run `npx github:aneym/how-to-work check` (add `--online` to compare against the latest published engine). It checks engine-version drift and config-schema drift and prints the exact `init` / `init --migrate` fix command. Run the printed command before proceeding when it exits non-zero. If there is no config yet, `npx github:aneym/how-to-work init` stamps one. (These skills invoke the GitHub form `npx github:aneym/how-to-work …` because the package is not yet published to npm; once it is, this becomes `npx how-to-work@latest …`.)
 
 It tells you the brand and style to follow, the output paths, the docs host URL for links, the templates to reuse, and the scaffold/render/verify/serve commands to run. Do not invent these — read them from config and fall back to the neutral defaults in this skill only when no config exists.
 
@@ -45,8 +45,8 @@ If present, treat the merged config as the repo overlay. It may define:
 | `doc.stagesPath`                      | Repo-local lifecycle-stage source; `null` ⇒ the engine's built-in 6-stage lifecycle.                                                              |
 | `canonicalUrlBase`                    | Public docs host base for links handed back in replies. `null` ⇒ use the served / `devUrlBase` URL.                                               |
 | `devUrlBase`                          | Local/dev URL base for opening the doc in a browser.                                                                                              |
-| `serve.command` / `serve.port`        | How to serve durable docs (a repo command, or `npx how-to-work@latest serve --port <port>`).                                                      |
-| `answerGate.base` / `answerGate.mode` | Where grill answers are submitted/polled, and the gate mode (`none` \| `local` \| `hermes`).                                                      |
+| `serve.command` / `serve.port`        | How to serve durable docs (a repo command, or `npx github:aneym/how-to-work serve --port <port>`).                                                |
+| `answerGate.base` / `answerGate.mode` | Where grill answers are submitted/polled, and the gate mode (`none` \| `local` \| `custom`).                                                      |
 | `livingExamples`                      | Existing docs/patterns to imitate before inventing a new shape.                                                                                   |
 | `knowledgeCompiler`                   | Repo rules for canonical docs, domain logs, source packets, contradiction handling, generated indexes, and which machine-state files to preserve. |
 
@@ -57,7 +57,7 @@ The shared skill defines the workflow. The repo config defines how that workflow
 The **how-to-work** engine OWNS how an artifact becomes a native doc: theme, the semantic component vocabulary, source/output paths, catalog registration, and verification. In a repo that uses it:
 
 1. Author **semantic source** (`.doc.md`: JSON frontmatter + `:::block` components + `@tab`), not HTML — never hand-write a theme or boilerplate the engine already owns.
-2. Use the engine's commands: `npx how-to-work@latest new <kind> <slug>` to scaffold, `render` to emit self-contained HTML, `register --all` to update the catalog, `index` to regenerate the lifecycle dashboard, `verify` to validate, `contract` to print the authoring contract.
+2. Use the engine's commands: `npx github:aneym/how-to-work new <kind> <slug>` to scaffold, `render` to emit self-contained HTML, `register --all` to update the catalog, `index` to regenerate the lifecycle dashboard, `verify` to validate, `contract` to print the authoring contract.
 3. Hand back links using the configured docs host (`canonicalUrlBase` for public links, `devUrlBase` for local).
 
 The shared skill still owns workflow semantics (what artifact should exist, lifecycle, question protocol, knowledge-compiler classes, closeout). The engine owns rendering.
@@ -145,7 +145,7 @@ When the user says something like "plan and link this please" after a discussion
 
 1. Create a concise local HTML decision packet (thesis, operating model, phases, guardrails, open questions, next action).
 2. Verify the file exists and has non-zero bytes.
-3. Serve it using the repo config's `serve.command` (or `npx how-to-work@latest serve`); prefer an existing serve route over creating a new public surface.
+3. Serve it using the repo config's `serve.command` (or `npx github:aneym/how-to-work serve`); prefer an existing serve route over creating a new public surface.
 4. Verify the shared URL returns `200` and `Content-Type: text/html` before declaring it done.
 5. Keep the final reply terse: the link plus verification facts, not a restatement of the whole doc.
 
@@ -263,14 +263,14 @@ These are shared built-in kinds. If the repo config defines its own kind taxonom
    - For third-party systems, fetch official docs.
    - Separate raw evidence from current canonical knowledge before writing.
 4. Pick visuals. Use the repo's living examples and the package's component gallery to choose only visuals that clarify the topic.
-5. Scaffold. Use `npx how-to-work@latest new <kind> <slug>` (or the repo's configured scaffold command). Do not leave placeholder diagrams or placeholder file paths in the final artifact.
+5. Scaffold. Use `npx github:aneym/how-to-work new <kind> <slug>` (or the repo's configured scaffold command). Do not leave placeholder diagrams or placeholder file paths in the final artifact.
 6. Fill the artifact. Author semantic `.doc.md`; keep the main path concise; put exhaustive refs in appendices. Render user-facing dates readably.
 7. Compile durable knowledge. If the result changes future repo understanding, update the affected canonical Markdown, hub/index, log, and companion links before handoff.
 8. Verify.
    - HTML file exists in the right location with non-zero bytes.
    - No broken local asset references.
    - Important file paths and commands are selectable text.
-   - `npx how-to-work@latest verify` passes (plus any repo-configured checks).
+   - `npx github:aneym/how-to-work verify` passes (plus any repo-configured checks).
    - Durable HTML docs support system light/dark mode when the repo requires it.
    - Mobile viewport check passes at 390px wide: no body-level horizontal scroll, no clipped nav text, tables/diagrams scroll inside their own containers, and the first screen shows real content instead of only oversized hero chrome.
    - If served, the URL returns `200 OK` and `Content-Type: text/html`.
