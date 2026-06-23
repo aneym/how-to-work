@@ -22,7 +22,7 @@ import {
   readdirSync,
   mkdirSync,
 } from "node:fs";
-import { dirname, join, isAbsolute } from "node:path";
+import { dirname, join, isAbsolute, relative, sep } from "node:path";
 import { loadConfig, PACKAGE_ROOT } from "./config.mjs";
 import { loadStages } from "./stages.mjs";
 
@@ -1797,7 +1797,13 @@ function renderPacketBar(data) {
   const canon = packet.canonical
     ? `<span class="pk-canon" title="Canonical, long-living">canonical</span>`
     : "";
-  return `<nav class="packetbar" aria-label="Packet: ${escAttr(packet.title || packet.slug)}"><a class="pk-name" href="${escAttr(DOCS_INDEX_ROUTE)}">◰ ${esc(packet.title || packet.slug)}</a>${canon}<span class="pk-docs">${sections}</span></nav>`;
+  const pkHref = relative(
+    dirname(outputPathFor(data)),
+    join(PACKETS_DIR, packet.slug, "index.html"),
+  )
+    .split(sep)
+    .join("/");
+  return `<nav class="packetbar" aria-label="Packet: ${escAttr(packet.title || packet.slug)}"><a class="pk-name" href="${escAttr(pkHref)}">◰ ${esc(packet.title || packet.slug)}</a>${canon}<span class="pk-docs">${sections}</span></nav>`;
 }
 
 function cmdContract() {

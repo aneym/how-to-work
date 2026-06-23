@@ -189,6 +189,54 @@ function loadPackets(root, doc) {
   return out;
 }
 
+function packetPageHtml(p, byId, root, theme, brand) {
+  const pageDir = join(root, "docs", "packets", p.slug);
+  const groups = {};
+  for (const d of p.docs) (groups[d.role || "doc"] = groups[d.role || "doc"] || []).push(d);
+  const order = ["explainer", "prd", "reference", "doc"];
+  const sections = order
+    .filter((r) => groups[r])
+    .map((r) => {
+      const items = groups[r]
+        .map((d) => {
+          const e = byId.get(d.ref);
+          if (!e) return `<li>${esc(d.ref)} <span class="chip">unregistered</span></li>`;
+          const href = entryLink(e, pageDir, root);
+          return `<li><a href="${escAttr(href)}">${esc(e.title || d.ref)}</a>${e.summary ? ` — <span class="small">${esc(e.summary)}</span>` : ""}</li>`;
+        })
+        .join("");
+      return `<section class="section"><div class="section-head"><h2>${PACKET_ROLE_LABEL[r] || r}</h2><span class="section-count">${groups[r].length}</span></div><ul class="packet-docs">${items}</ul></section>`;
+    })
+    .join("\n");
+  const canon = p.canonical ? `<span class="pk-canon">canonical</span>` : "";
+  const title = esc(p.title || p.slug);
+  const body = `<header>
+<a class="back" href="../../index.html">&larr; Docs</a>
+<div class="navpacket-h"><h1>◰ ${title}</h1>${canon}</div>
+${p.goal ? `<p class="lede">${esc(p.goal)}</p>` : ""}
+${p.summary ? `<p class="small">${esc(p.summary)}</p>` : ""}
+</header>
+${sections}`;
+  return `<!doctype html>
+<html lang="en" data-doc-kind="packet" data-doc-title="${escAttr(p.title || p.slug)}">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>${title} — packet</title>
+<style>
+${theme}
+${DASH_CSS}
+</style>
+</head>
+<body>
+<main>
+${body}
+</main>
+</body>
+</html>
+`;
+}
+
 function renderPacketsSection(packets, byId, indexDir, root) {
   const cards = packets
     .map((p) => {
@@ -210,7 +258,7 @@ function renderPacketsSection(packets, byId, indexDir, root) {
         })
         .join("");
       const canon = p.canonical ? `<span class="pk-canon">canonical</span>` : "";
-      return `<article class="card navpacket"><div class="navpacket-h"><h3>◰ ${esc(p.title || p.slug)}</h3>${canon}</div>${p.goal ? `<p class="small">${esc(p.goal)}</p>` : ""}<div class="nav-roles">${roles}</div></article>`;
+      return `<article class="card navpacket"><div class="navpacket-h"><h3><a href="${escAttr("packets/" + p.slug + "/")}">◰ ${esc(p.title || p.slug)}</a></h3>${canon}</div>${p.goal ? `<p class="small">${esc(p.goal)}</p>` : ""}<div class="nav-roles">${roles}</div></article>`;
     })
     .join("\n");
   return `<section class="section"><div class="section-head"><h2>Packets</h2><span class="section-count">${packets.length}</span></div><div class="docs">${cards}</div></section>`;
@@ -279,6 +327,11 @@ export async function run({ root, args }) {
   const byId = new Map();
   for (const e of entries) if (e && e.id != null) byId.set(e.id, e);
   const packets = loadPackets(root, doc);
+  for (const p of packets) {
+    const pageDir = join(root, "docs", "packets", p.slug);
+    mkdirSync(pageDir, { recursive: true });
+    writeFileSync(join(pageDir, "index.html"), packetPageHtml(p, byId, root, theme, brand));
+  }
 
   // Bucket entries into the canonical sections; unknown lifecycles fall into an
   // "Other" bucket rendered only when non-empty (never silently dropped).

@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.2.1
+
+- serve: serve the `docs/` tree at both `/docs/*` and bare root paths (`/explainers/x`, `/prds/x/`) so existing links and habits don't 404.
+- Packets are clickable: `htw index` generates a per-packet landing page (`docs/packets/<slug>/index.html`) listing member docs by role; the navigator packet card title and the in-doc packet header link to it.
+
 ## 0.2.0
 
 Rendering completeness, a packet model, and a searchable navigator.

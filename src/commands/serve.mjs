@@ -61,17 +61,16 @@ function notFound(res) {
 }
 
 function serveStatic(req, res, root) {
-  const url = new URL(req.url || "/", "http://docs.local");
-  let pathname = decodeURIComponent(url.pathname);
-  if (pathname === "/" || pathname === "/docs" || pathname === "/docs/") pathname = "/docs/index.html";
-
-  // Only the /docs subtree is served, and only via GET/HEAD.
   if (req.method !== "GET" && req.method !== "HEAD") return notFound(res);
-  if (pathname !== "/docs" && !pathname.startsWith("/docs/")) return notFound(res);
-
-  const rel = pathname.replace(/^\/+/, "");
-  let file = path.resolve(root, rel);
+  const url = new URL(req.url || "/", "http://docs.local");
+  let rel = decodeURIComponent(url.pathname).replace(/^\/+/, "");
+  // Serve the docs/ tree at BOTH the canonical /docs/* mount and bare root paths
+  // (/explainers/x, /prds/x/): the previous server served at root, so existing
+  // links and muscle memory keep resolving instead of 404ing.
+  if (rel === "docs" || rel.startsWith("docs/")) rel = rel.slice(4).replace(/^\/+/, "");
+  if (rel === "") rel = "index.html";
   const docsRoot = path.resolve(root, "docs");
+  let file = path.resolve(docsRoot, rel);
   if (file !== docsRoot && !file.startsWith(docsRoot + path.sep)) return notFound(res);
 
   try {
