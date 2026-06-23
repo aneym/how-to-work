@@ -19,7 +19,7 @@
  *
  * Node ESM, built-ins only.
  */
-import { readFileSync, writeFileSync, existsSync, mkdirSync } from "node:fs";
+import { readFileSync, writeFileSync, existsSync, mkdirSync, readdirSync } from "node:fs";
 import { join, dirname, isAbsolute, relative, resolve, sep } from "node:path";
 import { loadConfig, PACKAGE_ROOT } from "../config.mjs";
 import { loadStages } from "../stages.mjs";
@@ -131,7 +131,10 @@ function entryCard(entry, indexDir, root, stage) {
   const chips = [...tags.map((t) => `<span class="chip">${esc(t)}</span>`)];
   if (entry.updatedAt) chips.push(`<span class="chip">${esc(entry.updatedAt)}</span>`);
   const next = entry.nextAction ? `<p class="small doc-next"><span class="label">Next</span> ${esc(entry.nextAction)}</p>` : "";
-  return `<a class="card doc" href="${escAttr(link)}">
+  const search = esc(
+    ((entry.title || "") + " " + (entry.summary || "") + " " + tags.join(" ") + " " + (entry.lifecycle || "")).toLowerCase(),
+  );
+  return `<a class="card doc" href="${escAttr(link)}" data-search="${search}">
 <div class="doc-head"><h3 class="doc-title">${esc(entry.title || entry.id)}</h3>${bar}</div>
 ${entry.summary ? `<p class="small">${esc(entry.summary)}</p>` : ""}
 ${next}
@@ -161,6 +164,75 @@ a.card.doc:hover .doc-title{color:var(--accent)}
 // ---------------------------------------------------------------------------
 // run
 // ---------------------------------------------------------------------------
+
+const PACKET_ROLE_LABEL = { explainer: "Explainers", prd: "PRDs", reference: "Reference", doc: "Docs" };
+
+// Packets are declared by docs/packets/<slug>/packet.json. The navigator surfaces
+// them as a top section so a high-level goal's whole doc set reads as one unit.
+function loadPackets(root, doc) {
+  const dir = join(root, doc.packetsDir || "docs/packets");
+  const out = [];
+  if (!existsSync(dir)) return out;
+  for (const slug of readdirSync(dir)) {
+    const mf = join(dir, slug, "packet.json");
+    if (!existsSync(mf)) continue;
+    try {
+      const p = JSON.parse(readFileSync(mf, "utf8"));
+      p.slug = p.slug || slug;
+      p.docs = Array.isArray(p.docs) ? p.docs : [];
+      out.push(p);
+    } catch {
+      /* skip a malformed manifest rather than crash the whole dashboard */
+    }
+  }
+  out.sort((a, b) => (b.canonical ? 1 : 0) - (a.canonical ? 1 : 0));
+  return out;
+}
+
+function renderPacketsSection(packets, byId, indexDir, root) {
+  const cards = packets
+    .map((p) => {
+      const groups = {};
+      for (const d of p.docs) (groups[d.role || "doc"] = groups[d.role || "doc"] || []).push(d);
+      const order = ["explainer", "prd", "reference", "doc"];
+      const roles = order
+        .filter((r) => groups[r])
+        .map((r) => {
+          const lis = groups[r]
+            .map((d) => {
+              const e = byId.get(d.ref);
+              const title = e ? e.title || d.ref : d.ref;
+              if (!e) return `<li>${esc(title)} <span class="chip">unregistered</span></li>`;
+              return `<li><a href="${escAttr(entryLink(e, indexDir, root))}">${esc(title)}</a></li>`;
+            })
+            .join("");
+          return `<div class="nav-role"><div class="nav-role-h">${PACKET_ROLE_LABEL[r] || r}</div><ul>${lis}</ul></div>`;
+        })
+        .join("");
+      const canon = p.canonical ? `<span class="pk-canon">canonical</span>` : "";
+      return `<article class="card navpacket"><div class="navpacket-h"><h3>◰ ${esc(p.title || p.slug)}</h3>${canon}</div>${p.goal ? `<p class="small">${esc(p.goal)}</p>` : ""}<div class="nav-roles">${roles}</div></article>`;
+    })
+    .join("\n");
+  return `<section class="section"><div class="section-head"><h2>Packets</h2><span class="section-count">${packets.length}</span></div><div class="docs">${cards}</div></section>`;
+}
+
+const FILTER_SCRIPT = `<script>
+(function(){
+  var q=document.querySelector('.navsearch'); if(!q) return;
+  var cards=[].slice.call(document.querySelectorAll('a.card.doc'));
+  q.addEventListener('input',function(){
+    var v=q.value.trim().toLowerCase();
+    cards.forEach(function(c){
+      c.style.display = !v || (c.getAttribute('data-search')||'').indexOf(v)>=0 ? '' : 'none';
+    });
+    [].slice.call(document.querySelectorAll('.section')).forEach(function(sec){
+      if(!sec.querySelector('a.card.doc')) return; // leave the Packets section alone
+      var any=[].slice.call(sec.querySelectorAll('a.card.doc')).some(function(c){return c.style.display!=='none';});
+      sec.style.display=any?'':'none';
+    });
+  });
+})();
+</script>`;
 
 export async function run({ root, args }) {
   const config = loadConfig(root);
@@ -204,6 +276,9 @@ export async function run({ root, args }) {
   // The dashboard lives at docs/index.html; links are relative to its directory.
   const outAbs = join(root, "docs", "index.html");
   const indexDir = dirname(outAbs);
+  const byId = new Map();
+  for (const e of entries) if (e && e.id != null) byId.set(e.id, e);
+  const packets = loadPackets(root, doc);
 
   // Bucket entries into the canonical sections; unknown lifecycles fall into an
   // "Other" bucket rendered only when non-empty (never silently dropped).
@@ -249,8 +324,11 @@ ${DASH_CSS}
 <header>
 <h1>${esc(heading)}</h1>
 <p class="dash-lede">${total} ${total === 1 ? "doc" : "docs"} across the How To Work lifecycle.</p>
+<input class="navsearch" type="search" placeholder="Search docs…" aria-label="Search docs" autocomplete="off" />
 </header>
+${packets.length ? renderPacketsSection(packets, byId, indexDir, root) : ""}
 ${body}
+${FILTER_SCRIPT}
 </main>
 </body>
 </html>

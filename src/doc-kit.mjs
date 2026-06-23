@@ -42,6 +42,8 @@ let PRDS_DIR;
 let PLANS_DIR;
 let DOCS_INDEX_ROUTE;
 let BACK_LINK;
+let PACKETS_DIR;
+let BRAND_NAME;
 
 // SEAM-1: the lifecycle is no longer read eagerly from the consuming repo's
 // src/lib/stages.json (which ENOENT-crashed every non-Homebase repo at import).
@@ -49,6 +51,10 @@ let BACK_LINK;
 // overrides — into these lets, used by stageIndex()/renderStageBar() at run time.
 let STAGE_SEQUENCE;
 let STAGE_ALIASES;
+// answerGate.mode gates the live "Submit to agent" button. "none" (or absent) =
+// no live gate (static host / no agent listening) -> render Copy-answers only, so
+// the doc never shows a button that posts into the void. "local"/"backend" show it.
+let GATE_MODE;
 
 // Resolve every config-driven path/route once ROOT is known, then load the
 // lifecycle. Called from main before dispatch. No algorithmic change: with no
@@ -63,12 +69,15 @@ function configure() {
   PLANS_DIR = doc.plansDir ?? "docs/plans";
   DOCS_INDEX_ROUTE = doc.docsIndexRoute ?? "/docs";
   BACK_LINK = `<a class="back" href="${DOCS_INDEX_ROUTE}">&larr; Docs</a>`;
+  PACKETS_DIR = doc.packetsDir ?? "docs/packets";
+  BRAND_NAME = config.brandName || "";
   THEME_PATH = resolveThemePath(doc);
   THEME_TOKENS_PATH = resolveThemeTokensPath(doc);
 
   const stages = loadStages(config, ROOT);
   STAGE_SEQUENCE = stages.sequence;
   STAGE_ALIASES = stages.aliases;
+  GATE_MODE = (config.answerGate && config.answerGate.mode) || "none";
   return config;
 }
 
@@ -258,6 +267,13 @@ const TAB_SCRIPT = `<script>
           var needsComment =
             s.decision === "disapprove" && !(s.comment && s.comment.trim());
           if (ta) ta.setAttribute("data-required", String(needsComment));
+          var showComment =
+            card.__showComment ||
+            s.decision === "disapprove" ||
+            !!(s.comment && s.comment.trim());
+          if (ta) ta.hidden = !showComment;
+          var cb = card.querySelector("[data-qcommentbtn]");
+          if (cb) cb.setAttribute("aria-expanded", String(showComment));
           var done = isAnswered(card);
           if (done) answered++;
           card.setAttribute("data-state", done ? "answered" : "open");
@@ -345,6 +361,17 @@ const TAB_SCRIPT = `<script>
             saveState(state);
             render();
             clearSubmittedReflection();
+          });
+        }
+        var cbtn = card.querySelector("[data-qcommentbtn]");
+        if (cbtn) {
+          cbtn.addEventListener("click", function () {
+            card.__showComment = !card.__showComment;
+            render();
+            if (card.__showComment) {
+              var t = card.querySelector("[data-qcomment]");
+              if (t) t.focus();
+            }
           });
         }
       });
@@ -549,12 +576,36 @@ function sanitizeRawHtml(html) {
 /** Inline markdown: **bold**, `code`, [text](href). Escapes HTML first. */
 function inline(s) {
   let out = esc(s);
-  out = out.replace(/`([^`]+?)`/g, (_m, c) => `<code>${c}</code>`);
+  // Protect backslash-escaped punctuation (\$, \*, \_ …) so it neither triggers
+  // emphasis nor keeps its backslash — restored as the literal char at the end.
+  const escLit = [];
+  out = out.replace(/\\([\\`*_{}\[\]()#+\-.!$~])/g, (_m, ch) => {
+    escLit.push(ch);
+    return `E${escLit.length - 1}`;
+  });
+  // Protect inline code so emphasis/link rules never reach inside it (snake_case,
+  // a*b inside backticks must survive verbatim).
+  const codeLit = [];
+  out = out.replace(/`([^`]+?)`/g, (_m, c) => {
+    codeLit.push(c);
+    return `C${codeLit.length - 1}`;
+  });
   out = out.replace(/\*\*([^*]+?)\*\*/g, (_m, c) => `<strong>${c}</strong>`);
+  // Emphasis only at word boundaries, so intraword _ / * (identifiers, math) stay literal.
+  out = out.replace(
+    /(^|[\s(["'])\*(?!\s)([^*]+?)\*(?=[\s)\]"'.,;:!?]|$)/g,
+    (_m, p, c) => `${p}<em>${c}</em>`,
+  );
+  out = out.replace(
+    /(^|[\s(["'])_(?!\s)([^_]+?)_(?=[\s)\]"'.,;:!?]|$)/g,
+    (_m, p, c) => `${p}<em>${c}</em>`,
+  );
   out = out.replace(
     /\[([^\]]+?)\]\(([^)\s]+?)\)/g,
     (_m, t, h) => `<a href="${escAttr(safeUrl(h))}">${t}</a>`,
   );
+  out = out.replace(/C(\d+)/g, (_m, i) => `<code>${codeLit[+i]}</code>`);
+  out = out.replace(/E(\d+)/g, (_m, i) => escLit[+i]);
   return out;
 }
 
@@ -672,9 +723,10 @@ function parseNodes(text) {
   while (i < lines.length) {
     const line = lines[i];
     const trimmed = line.trim();
-    if (/^## /.test(line)) {
+    const headingMatch = line.match(/^(#{2,4}) +(.*)$/);
+    if (headingMatch) {
       flushProse();
-      nodes.push({ type: "h2", text: line.replace(/^##\s+/, "").trim() });
+      nodes.push({ type: "h" + headingMatch[1].length, text: headingMatch[2].trim() });
       i++;
     } else if (/^:::[A-Za-z]/.test(trimmed)) {
       flushProse();
@@ -684,7 +736,6 @@ function parseNodes(text) {
       const optStr = m[2].trim();
       const raw = [];
       if (optStr.startsWith("{")) {
-        // Parse a leading JSON object; any text after the closing } is content. This recovers
         // formatter-merged openers like `:::rows {"variant":"phase"} 0. Foo :: Bar`.
         let depth = 0;
         let end = -1;
@@ -798,6 +849,29 @@ function parseRecords(rawLines) {
 // block rendering
 // ---------------------------------------------------------------------------
 
+function isTableChunk(chunk) {
+  return (
+    chunk.length >= 2 &&
+    chunk[0].includes("|") &&
+    /^\s*\|?\s*:?-{1,}:?\s*(\|\s*:?-{1,}:?\s*)*\|?\s*$/.test(chunk[1])
+  );
+}
+// Minimal GFM table: first row = header, second = --- separator (optional :align:),
+// rest = body. Renders a real <table> instead of the literal-pipe paragraph the
+// engine used to emit.
+function renderTable(rows) {
+  const cells = (line) =>
+    line.trim().replace(/^\|/, "").replace(/\|$/, "").split("|").map((c) => c.trim());
+  const aligns = cells(rows[1]).map((c) => {
+    const l = c.startsWith(":");
+    const r = c.endsWith(":");
+    return l && r ? "center" : r ? "right" : l ? "left" : "";
+  });
+  const sty = (i) => (aligns[i] ? ` style="text-align:${aligns[i]}"` : "");
+  const thead = `<thead><tr>${cells(rows[0]).map((c, i) => `<th${sty(i)}>${inline(c)}</th>`).join("")}</tr></thead>`;
+  const tbody = `<tbody>${rows.slice(2).map((r) => `<tr>${cells(r).map((c, i) => `<td${sty(i)}>${inline(c)}</td>`).join("")}</tr>`).join("")}</tbody>`;
+  return `<table>${thead}${tbody}</table>`;
+}
 function renderProse(lines) {
   // group by blank lines into paragraphs / lists
   const chunks = [];
@@ -810,6 +884,7 @@ function renderProse(lines) {
   if (buf.length) chunks.push(buf);
   return chunks
     .map((chunk) => {
+      if (isTableChunk(chunk)) return renderTable(chunk);
       if (chunk.every((l) => /^\s*-\s+/.test(l))) {
         return `<ul>${chunk.map((l) => `<li>${inline(l.replace(/^\s*-\s+/, ""))}</li>`).join("")}</ul>`;
       }
@@ -915,57 +990,51 @@ function renderResources(rawLines) {
 
 function renderQuestions(rawLines) {
   const records = parseRecords(rawLines);
-  // Cards without a recorded `answer` are still open => they get live review
-  // controls (Approve / Disapprove + comment) and feed the Copy-answers bar.
-  const answerableCount = records.filter((q) => !q.answer).length;
-  // Highest-value-at-top: open/unanswered cards render first, resolved
-  // (recorded answer) cards demote to the bottom — not authoring order. Stable
-  // within each group so authoring order is preserved among peers.
-  const ordered = [
-    ...records.filter((q) => !q.answer),
-    ...records.filter((q) => q.answer),
-  ];
-  const inner = ordered
-    .map((q) => {
-      const id = q.id ? `<span class="qid">${esc(q.id)}.</span> ` : "";
-      const tag = q.tag ? `<span class="qtag" data-qtag>${esc(q.tag)}</span>` : "";
-      const question = q.question ? `<p>${inline(q.question)}</p>` : "";
-      const rec = q.recommendation
-        ? `<p><strong>Recommendation:</strong> ${inline(q.recommendation)}</p>`
-        : "";
-      const qidAttr = ` data-qcard data-qid="${escAttr(q.id || "")}"`;
-      // Resolved card: a static answer was recorded in source -> show it, no controls.
-      if (q.answer) {
-        const ans = `<p class="qanswer"><strong>Answer:</strong> ${inline(q.answer)}</p>`;
-        return `<article class="qcard"${qidAttr}><div class="qhead"><span class="qtitle">${id}${inline(q.title || "")}</span>${tag}</div>${question}${rec}${ans}</article>`;
-      }
-      // Open card: live Approve / Disapprove + comment.
-      const plainTitle = String(q.title || "")
-        .replace(/\*\*/g, "")
-        .replace(/`/g, "");
-      const meta = ` data-qtitle="${escAttr(plainTitle)}" data-qtagopen="${escAttr(q.tag || "open")}"`;
-      const controls = `<div class="qactions" data-qactions><button type="button" class="qbtn qapprove" data-decide="approve" aria-pressed="false">Approve</button><button type="button" class="qbtn qreject" data-decide="disapprove" aria-pressed="false">Disapprove</button></div><textarea class="qcomment" data-qcomment rows="2" placeholder="Comment / custom answer…"></textarea>`;
-      return `<article class="qcard"${qidAttr}${meta}><div class="qhead"><span class="qtitle">${id}${inline(q.title || "")}</span>${tag}</div>${question}${rec}${controls}</article>`;
-    })
-    .join("");
-  const bar =
-    answerableCount > 0
-      ? `<div class="qbar" data-qbar><span class="qcount" data-qcount>0 / ${answerableCount} answered</span><div class="qbar-actions"><button type="button" class="qclear" data-qclear>Clear</button><button type="button" class="qcopy" data-qcopy disabled>Copy answers</button><button type="button" class="qsubmit" data-qsubmit disabled>Submit to agent</button></div></div>`
+  const open = records.filter((q) => !q.answer);
+  const resolved = records.filter((q) => q.answer);
+  const answerableCount = open.length;
+  // One question card. Open cards get live controls; the comment box is collapsed
+  // by default (most answers are a one-tap Approve) and reveals on Disapprove or
+  // via the inline Comment toggle — that keeps the stack compact.
+  const renderCard = (q) => {
+    const id = q.id ? `<span class="qid">${esc(q.id)}.</span> ` : "";
+    const tag = q.tag ? `<span class="qtag" data-qtag>${esc(q.tag)}</span>` : "";
+    const question = q.question ? `<p class="qq">${inline(q.question)}</p>` : "";
+    const rec = q.recommendation
+      ? `<p class="qrec"><strong>Recommendation:</strong> ${inline(q.recommendation)}</p>`
       : "";
-  const banner =
-    answerableCount > 0
-      ? `<div class="qasking" data-qasking hidden><span class="qdot"></span><span data-qasking-text>The agent is waiting for your answers — review and hit Submit.</span></div>`
-      : "";
-  // Fully-resolved block: consolidate into a collapsed <details> so it stops
-  // dominating the page (highest-value content stays at the top). Blocks with
-  // open cards render expanded with the lit bar/banner.
-  if (answerableCount === 0 && records.length > 0) {
-    const n = records.length;
-    return `<details class="qresolved"><summary>${n} question${n === 1 ? "" : "s"} resolved &#10003;</summary><div class="qstack">${inner}</div></details>`;
-  }
-  return `<div class="qreview" data-qstack>${banner}${bar}<div class="qstack">${inner}</div></div>`;
+    const qidAttr = ` data-qcard data-qid="${escAttr(q.id || "")}"`;
+    if (q.answer) {
+      const ans = `<p class="qanswer"><strong>Answer:</strong> ${inline(q.answer)}</p>`;
+      return `<article class="qcard"${qidAttr}><div class="qhead"><span class="qtitle">${id}${inline(q.title || "")}</span>${tag}</div>${question}${rec}${ans}</article>`;
+    }
+    const plainTitle = String(q.title || "")
+      .replace(/\*\*/g, "")
+      .replace(/`/g, "");
+    const meta = ` data-qtitle="${escAttr(plainTitle)}" data-qtagopen="${escAttr(q.tag || "open")}"`;
+    const controls = `<div class="qactions" data-qactions><button type="button" class="qbtn qapprove" data-decide="approve" aria-pressed="false">Approve</button><button type="button" class="qbtn qreject" data-decide="disapprove" aria-pressed="false">Disapprove</button><button type="button" class="qbtn qcommentbtn" data-qcommentbtn aria-expanded="false">Comment</button></div><textarea class="qcomment" data-qcomment rows="2" placeholder="Comment / custom answer…" hidden></textarea>`;
+    return `<article class="qcard"${qidAttr}${meta}><div class="qhead"><span class="qtitle">${id}${inline(q.title || "")}</span>${tag}</div>${question}${rec}${controls}</article>`;
+  };
+  // Resolved questions always live in a collapsed <details> at the bottom — even
+  // when open ones remain — since users rarely re-read settled decisions.
+  const resolvedBlock = resolved.length
+    ? `<details class="qresolved"><summary>${resolved.length} question${resolved.length === 1 ? "" : "s"} resolved &#10003;</summary><div class="qstack">${resolved.map(renderCard).join("")}</div></details>`
+    : "";
+  if (answerableCount === 0) return resolvedBlock;
+  const openInner = open.map(renderCard).join("");
+  // The live "Submit to agent" button only renders when a gate is wired
+  // (answerGate.mode !== "none"). On a static host / no listening agent there is
+  // no endpoint, so Copy-answers is the round-trip and a dead button is omitted.
+  const liveGate = GATE_MODE && GATE_MODE !== "none";
+  const submitBtn = liveGate
+    ? `<button type="button" class="qsubmit" data-qsubmit disabled>Submit to agent</button>`
+    : "";
+  const bar = `<div class="qbar" data-qbar><span class="qcount" data-qcount>0 / ${answerableCount} answered</span><div class="qbar-actions"><button type="button" class="qclear" data-qclear>Clear</button><button type="button" class="qcopy" data-qcopy disabled>Copy answers</button>${submitBtn}</div></div>`;
+  const banner = liveGate
+    ? `<div class="qasking" data-qasking hidden><span class="qdot"></span><span data-qasking-text>The agent is waiting for your answers — review and hit Submit.</span></div>`
+    : "";
+  return `<div class="qreview" data-qstack>${banner}${bar}<div class="qstack">${openInner}</div></div>${resolvedBlock}`;
 }
-
 function renderLedgerRecords(records) {
   const inner = records
     .map((e) => {
@@ -1066,6 +1135,8 @@ function renderNodes(nodes) {
       closeSection();
       html += `\n<section data-doc-section="${slugify(node.text)}">\n<h2>${inline(node.text)}</h2>`;
       inSection = true;
+    } else if (node.type === "h3" || node.type === "h4") {
+      html += `\n<${node.type}>${inline(node.text)}</${node.type}>`;
     } else {
       let chunk = "";
       if (node.type === "prose") chunk = renderProse(node.lines);
@@ -1303,6 +1374,7 @@ function outputPathFor(data) {
 function assemblePage(parsed) {
   const { data, body, srcPath } = parsed;
   const theme = themeCss();
+  const packetBar = renderPacketBar(data);
 
   // A doc that has been subsumed by another (one topic = one evolving artifact). Emit a themed
   // redirect to the canonical surface; it keeps the old URL reachable and out of the catalog.
@@ -1400,7 +1472,7 @@ ${BACK_LINK}
       ? renderStageBar(data.stage ?? state?.stage, state?.status) || ""
       : "";
     const header = `<header>
-${BACK_LINK}
+${BACK_LINK}${packetBar}
 <h1>${esc(data.title)}</h1>
 <p class="lede">${inline(data.summary)}</p>
 ${stageBarHeader}
@@ -1414,7 +1486,7 @@ ${stageBarHeader}
   // flat report
   main = renderNodes(parseNodes(body));
   const header = `<header>
-${BACK_LINK}
+${BACK_LINK}${packetBar}
 <h1>${esc(data.title)}</h1>
 <p class="lede">${inline(data.summary)}</p>
 <div class="chips">${chips}</div>
@@ -1641,6 +1713,93 @@ function registerOne(data, srcText) {
 // commands
 // ---------------------------------------------------------------------------
 
+// ---------------------------------------------------------------------------
+// packets + navigator
+// ---------------------------------------------------------------------------
+
+let _packetCache = null;
+function loadPackets() {
+  if (_packetCache) return _packetCache;
+  const out = [];
+  const dir = join(ROOT, PACKETS_DIR);
+  if (existsSync(dir)) {
+    for (const slug of readdirSync(dir)) {
+      const mf = join(dir, slug, "packet.json");
+      if (!existsSync(mf)) continue;
+      const data = readJsonMaybe(mf);
+      if (!data) continue;
+      data.slug = data.slug || slug;
+      data.docs = Array.isArray(data.docs) ? data.docs : [];
+      out.push(data);
+    }
+  }
+  _packetCache = out;
+  return out;
+}
+
+let _packetIndexCache = null;
+function packetIndex() {
+  if (_packetIndexCache) return _packetIndexCache;
+  const byRef = new Map();
+  for (const p of loadPackets())
+    for (const d of p.docs)
+      if (d && d.ref && !byRef.has(d.ref)) byRef.set(d.ref, { packet: p, role: d.role || "doc" });
+  _packetIndexCache = { byRef };
+  return _packetIndexCache;
+}
+
+let _catalogMapCache = null;
+function loadCatalogMap() {
+  if (_catalogMapCache) return _catalogMapCache;
+  const m = new Map();
+  const abs = join(ROOT, CATALOG_PATH);
+  if (CATALOG_PATH.endsWith(".json") && existsSync(abs)) {
+    const arr = readJsonMaybe(abs);
+    if (Array.isArray(arr)) for (const e of arr) if (e && e.id != null) m.set(e.id, e);
+  }
+  _catalogMapCache = m;
+  return m;
+}
+
+const ROLE_LABEL = { explainer: "Explainers", prd: "PRDs", reference: "Reference", doc: "Docs" };
+function shortTitle(t) {
+  const x = String(t || "");
+  return x.length > 42 ? x.slice(0, 40).trimEnd() + "…" : x;
+}
+
+// Slim packet header on every member doc: packet name + grouped sibling links
+// (current highlighted) so a reader always sees the whole goal's doc set.
+function renderPacketBar(data) {
+  const id = catalogId(data);
+  const hit = packetIndex().byRef.get(id);
+  if (!hit) return "";
+  const { packet } = hit;
+  const cat = loadCatalogMap();
+  const groups = {};
+  for (const d of packet.docs) (groups[d.role || "doc"] = groups[d.role || "doc"] || []).push(d);
+  const order = ["explainer", "prd", "reference", "doc"];
+  const sections = order
+    .filter((r) => groups[r])
+    .map((r) => {
+      const links = groups[r]
+        .map((d) => {
+          const meta = cat.get(d.ref);
+          const title = shortTitle((meta && meta.title) || d.ref);
+          if (d.ref === id)
+            return `<span class="pk-cur" aria-current="page">${esc(title)}</span>`;
+          const href = meta && meta.href ? meta.href : "#";
+          return `<a href="${escAttr(href)}">${esc(title)}</a>`;
+        })
+        .join('<span class="pk-sep">·</span>');
+      return `<span class="pk-role"><b>${ROLE_LABEL[r] || r}</b> ${links}</span>`;
+    })
+    .join("");
+  const canon = packet.canonical
+    ? `<span class="pk-canon" title="Canonical, long-living">canonical</span>`
+    : "";
+  return `<nav class="packetbar" aria-label="Packet: ${escAttr(packet.title || packet.slug)}"><a class="pk-name" href="${escAttr(DOCS_INDEX_ROUTE)}">◰ ${esc(packet.title || packet.slug)}</a>${canon}<span class="pk-docs">${sections}</span></nav>`;
+}
+
 function cmdContract() {
   const out = `Homebase doc kit — agent contract
 ==================================
@@ -1798,6 +1957,7 @@ function cmdRender(args) {
 function jsonCatalogEntry(data) {
   return {
     id: catalogId(data),
+    kind: data.kind,
     title: data.title,
     summary: data.summary,
     href: routeFor(data),
@@ -1852,7 +2012,6 @@ function cmdRegister(args) {
   if (!sources.length) die("register: provide a source path or --all");
 
   // SEAM-5 dual-path: a `.json` catalogPath (public default, docs/catalog.json)
-  // gets a JSON-array catalog; a `.ts` catalogPath (Homebase's
   // src/modules/docs/catalog.ts) keeps the in-place TypeScript splice below.
   if (CATALOG_PATH.endsWith(".json")) return registerJsonCatalog(sources);
 

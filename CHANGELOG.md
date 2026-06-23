@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.2.0
+
+Rendering completeness, a packet model, and a searchable navigator.
+
+- Markdown: `###`/`####` headings, `_italic_` / `*italic*` (word-boundary safe), backslash escapes (`\), and GFM tables now render — they were emitted literally before.
+- Question cards: compact layout; the comment box is collapsed by default (reveals on Disapprove or the inline Comment toggle); resolved questions always collapse into a <details> at the bottom, even alongside open ones.
+- `answerGate.mode` is honored at render time: with no gate (`none`) the dead "Submit to agent" button is omitted, leaving Copy-answers as the round-trip.
+- Packets: declare a goal's doc set in `docs/packets/<slug>/packet.json` (`{title, goal, canonical, docs:[{ref, role}]}`); member docs render a compact packet header (siblings grouped by role, current highlighted, canonical badge).
+- Navigator (`htw index`): a search box with client-side filtering, plus a Packets section above the lifecycle groups.
+
 ## 0.1.0
 
 Initial release. A single zero-dependency engine bundling the grill protocol, scoping,
