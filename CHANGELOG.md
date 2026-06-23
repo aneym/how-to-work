@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.3.0
+
+- `htw init` now seeds the canonical **How-To-Work** packet (a doc-about-docs explainer + an authoring cheatsheet) into a fresh repo and builds it, so every project starts with the same searchable reference set. Opt out with `--no-seed`.
+- New `htw packet` command: list packets and validate that every member ref resolves to a registered catalog id (the CLI/CI gate behind the navigator's "unregistered" flag).
+
 ## 0.2.1
 
 - serve: serve the `docs/` tree at both `/docs/*` and bare root paths (`/explainers/x`, `/prds/x/`) so existing links and habits don't 404.

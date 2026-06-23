@@ -1,0 +1,11 @@
+{
+  "title": "How-To-Work",
+  "slug": "how-to-work",
+  "goal": "Author and ship branded, searchable docs from one shared engine.",
+  "summary": "The doc system itself — kinds, markdown, packets, the navigator, and the question round-trip.",
+  "canonical": true,
+  "docs": [
+    { "ref": "working-with-docs", "role": "explainer" },
+    { "ref": "doc-authoring-cheatsheet", "role": "reference" }
+  ]
+}

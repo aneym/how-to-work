@@ -32,6 +32,7 @@ Commands:
   render [<slug>|--all]        Render .doc.md sources to self-contained HTML
   register [--all]             Add rendered docs to the repo catalog
   index                        Build docs/index.html lifecycle dashboard from the JSON catalog
+  packet                       List + validate doc packets (refs must be registered catalog ids)
   verify                       Validate doc sources against the engine contract
   contract                     Print the doc frontmatter + structure contract
   grill ask --doc <slug>       Open a blocking question gate and wait for answers
@@ -121,6 +122,10 @@ async function main() {
     }
     if (command === "index") {
       const { run } = await import("../src/commands/index.mjs");
+      process.exit(await run({ root, args }));
+    }
+    if (command === "packet") {
+      const { run } = await import("../src/commands/packet.mjs");
       process.exit(await run({ root, args }));
     }
     if (DOC_KIT_COMMANDS.has(command)) {

@@ -15,7 +15,8 @@
  *
  * Node ESM, built-ins only.
  */
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, writeFileSync, readdirSync } from "node:fs";
+import { spawnSync } from "node:child_process";
 import { basename, dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -121,6 +122,39 @@ function findLegacy(root) {
   return found;
 }
 
+// Seed the bundled canonical "How-To-Work" packet (the doc-about-docs) into a
+// fresh repo so every project ships with the same starter reference set. Never
+// clobbers an existing file. Returns the repo-relative paths written.
+function seedCanonicalPacket(root, config) {
+  const doc = config.doc || {};
+  const packetsDir = doc.packetsDir || "docs/packets";
+  const sourcesDir = doc.sourcesDir || "docs/sources";
+  const tplDir = join(PACKAGE_ROOT, "templates", "packet", "how-to-work");
+  if (!existsSync(tplDir)) return [];
+  const today = new Date().toISOString().slice(0, 10);
+  const written = [];
+
+  const mfTarget = join(root, packetsDir, "how-to-work", "packet.json");
+  if (!existsSync(mfTarget)) {
+    mkdirSync(dirname(mfTarget), { recursive: true });
+    writeFileSync(mfTarget, readFileSync(join(tplDir, "packet.json"), "utf8"));
+    written.push(join(packetsDir, "how-to-work", "packet.json"));
+  }
+
+  const srcTpl = join(tplDir, "sources");
+  if (existsSync(srcTpl)) {
+    mkdirSync(join(root, sourcesDir), { recursive: true });
+    for (const f of readdirSync(srcTpl)) {
+      if (!f.endsWith(".doc.md")) continue;
+      const tgt = join(root, sourcesDir, f);
+      if (existsSync(tgt)) continue;
+      writeFileSync(tgt, readFileSync(join(srcTpl, f), "utf8").replace(/__DATE__/g, today));
+      written.push(join(sourcesDir, f));
+    }
+  }
+  return written;
+}
+
 export async function run({ root, args }) {
   const migrate = args.includes("--migrate");
   const force = args.includes("--force");
@@ -166,5 +200,31 @@ export async function run({ root, args }) {
     `htw init: wrote ${join(".agents", "skill-config", "workflow", "config.json")} ` +
       `(engineVersion ${config.engineVersion}).\n`,
   );
+
+  // Bootstrap the canonical How-To-Work packet, then build it so the navigator
+  // and packet page exist immediately. Opt out with --no-seed.
+  if (!args.includes("--no-seed")) {
+    const seeded = seedCanonicalPacket(root, config);
+    if (seeded.length) {
+      process.stdout.write(
+        "htw init: seeded the canonical How-To-Work packet:\n" +
+          seeded.map((p) => `  + ${p}\n`).join(""),
+      );
+      const bin = join(PACKAGE_ROOT, "bin", "htw.mjs");
+      let built = true;
+      for (const step of [["render", "--all"], ["register", "--all"], ["index"]]) {
+        const r = spawnSync(process.execPath, [bin, "--root", root, ...step], { stdio: "ignore" });
+        if (!r || r.status !== 0) {
+          built = false;
+          break;
+        }
+      }
+      process.stdout.write(
+        built
+          ? "htw init: built the packet — open docs/index.html (or `htw serve`).\n"
+          : "htw init: run `htw render --all && htw register --all && htw index` to build it.\n",
+      );
+    }
+  }
   return 0;
 }
