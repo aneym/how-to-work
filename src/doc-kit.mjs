@@ -139,9 +139,28 @@ const REQUIRED_FRONTMATTER = [
 const TAB_SCRIPT = `<script>
   const tabs = [...document.querySelectorAll(".tab")];
   const panels = [...document.querySelectorAll(".panel")];
-  function activateTab(tab) {
+  // Persist the active tab per-doc so a reload lands the reader back where they were.
+  // Key is scoped by the stable doc slug (data-doc-source, set per render) and the
+  // saved value is the tab's data-tab slug (stable across re-renders, not the index).
+  const tabDocSlug =
+    document.documentElement.getAttribute("data-doc-source") || location.pathname;
+  const tabStoreKey = "htw-active-tab:" + tabDocSlug;
+  function readSavedTab() {
+    try {
+      return localStorage.getItem(tabStoreKey) || "";
+    } catch (e) {
+      return "";
+    }
+  }
+  function saveTab(id) {
+    try {
+      localStorage.setItem(tabStoreKey, id);
+    } catch (e) {}
+  }
+  function activateTab(tab, persist) {
     tabs.forEach((t) => t.setAttribute("aria-selected", String(t === tab)));
     panels.forEach((p) => p.classList.toggle("active", p.id === tab.dataset.tab));
+    if (persist !== false && tab.dataset.tab) saveTab(tab.dataset.tab);
   }
   function typingTarget(el) {
     return el && (el.isContentEditable || ["INPUT", "TEXTAREA", "SELECT"].includes(el.tagName));
@@ -155,6 +174,86 @@ const TAB_SCRIPT = `<script>
     event.preventDefault();
     activateTab(tabs[index]);
   });
+  // Restore on load. Priority: URL hash (#tab=<slug-or-label>) > saved tab > default
+  // (the first tab is already rendered active, so we only override when there's a match).
+  (function restoreTab() {
+    if (!tabs.length) return;
+    function findTab(id) {
+      if (!id) return null;
+      var want = String(id).toLowerCase();
+      return (
+        tabs.find((t) => (t.dataset.tab || "").toLowerCase() === want) ||
+        tabs.find((t) => (t.textContent || "").trim().toLowerCase() === want) ||
+        null
+      );
+    }
+    var hashMatch = /(?:^|[#&])tab=([^&]+)/.exec(location.hash || "");
+    var hashId = hashMatch ? decodeURIComponent(hashMatch[1]) : "";
+    var target = findTab(hashId) || findTab(readSavedTab());
+    if (target && target.getAttribute("aria-selected") !== "true") {
+      // Honor a hash deep-link without clobbering the saved tab; clicks still persist.
+      activateTab(target, !hashId);
+    }
+  })();
+
+  /* ----- nested (second-level) tabs, scoped per top-level tab ----- */
+  (function () {
+    var groups = [...document.querySelectorAll("[data-subtab-group]")];
+    if (!groups.length) return;
+    // Persist the active nested tab PER GROUP. The group is keyed by its parent
+    // top-level tab slug, so restoring a parent tab also restores its last-active
+    // nested tab: key = "htw-active-subtab:<docSlug>:<parentTabSlug>".
+    function subStoreKey(parentSlug) {
+      return "htw-active-subtab:" + tabDocSlug + ":" + parentSlug;
+    }
+    function readSavedSub(parentSlug) {
+      try {
+        return localStorage.getItem(subStoreKey(parentSlug)) || "";
+      } catch (e) {
+        return "";
+      }
+    }
+    function saveSub(parentSlug, id) {
+      try {
+        localStorage.setItem(subStoreKey(parentSlug), id);
+      } catch (e) {}
+    }
+    groups.forEach(function (group) {
+      var parentSlug = group.getAttribute("data-subtab-group") || "";
+      // Scope every query to THIS group so multiple nested groups never collide.
+      var subtabs = [].slice.call(group.querySelectorAll(".subtab"));
+      var subpanels = [].slice.call(group.querySelectorAll(".subpanel"));
+      if (!subtabs.length) return;
+      function activateSub(tab, persist) {
+        var want = tab.getAttribute("data-subtab");
+        subtabs.forEach(function (t) {
+          t.setAttribute("aria-selected", String(t === tab));
+        });
+        subpanels.forEach(function (p) {
+          p.classList.toggle(
+            "active",
+            p.getAttribute("data-subpanel") === want,
+          );
+        });
+        if (persist !== false && want) saveSub(parentSlug, want);
+      }
+      subtabs.forEach(function (tab) {
+        tab.addEventListener("click", function () {
+          activateSub(tab);
+        });
+      });
+      // Restore the last-active nested tab for this parent (no hash deep-link for
+      // nested tabs; the first nested tab is already rendered active by default).
+      var savedSub = readSavedSub(parentSlug);
+      if (savedSub) {
+        var match = subtabs.find(function (t) {
+          return (t.getAttribute("data-subtab") || "") === savedSub;
+        });
+        if (match && match.getAttribute("aria-selected") !== "true")
+          activateSub(match, false);
+      }
+    });
+  })();
 
   /* ----- interactive question cards (How We Work review controls) ----- */
   (function () {
@@ -803,6 +902,7 @@ function splitTabs(body) {
   const regions = [];
   let current = { name: null, lines: [] };
   for (const line of lines) {
+    // A top-level divider is `@tab Name` but NOT `@@tab Name` (the nested marker).
     const m = line.match(/^@tab\s+(.+)$/);
     if (m) {
       regions.push(current);
@@ -817,6 +917,66 @@ function splitTabs(body) {
     .filter((r) => r.name !== null)
     .map((r) => ({ name: r.name, text: r.lines.join("\n") }));
   return { loose: loose ? loose.lines.join("\n") : "", named };
+}
+
+/**
+ * Split ONE top-level tab region into nested tab panels by `@@tab <Name>` markers.
+ * Returns null when the region contains no `@@tab` marker, so a region without
+ * nested tabs renders exactly as before (no nested bar, no behavior change).
+ * When present: text before the first `@@tab` is "loose" and joins the first
+ * nested panel (mirrors splitTabs' loose-into-first-tab rule), so authors can
+ * still write intro prose above the nested bar.
+ */
+function splitNestedTabs(text) {
+  const lines = text.split("\n");
+  if (!lines.some((l) => /^@@tab\s+.+$/.test(l))) return null;
+  const regions = [];
+  let current = { name: null, lines: [] };
+  for (const line of lines) {
+    const m = line.match(/^@@tab\s+(.+)$/);
+    if (m) {
+      regions.push(current);
+      current = { name: m[1].trim(), lines: [] };
+    } else {
+      current.lines.push(line);
+    }
+  }
+  regions.push(current);
+  const loose = regions.find((r) => r.name === null);
+  const looseText = loose ? loose.lines.join("\n") : "";
+  const named = regions.filter((r) => r.name !== null);
+  if (!named.length) return null; // defensive: only the loose region -> no nesting
+  return named.map((r, idx) => ({
+    name: r.name,
+    text:
+      idx === 0 && looseText.trim()
+        ? looseText + "\n" + r.lines.join("\n")
+        : r.lines.join("\n"),
+  }));
+}
+
+/**
+ * Render the content of a single top-level tab. If it contains `@@tab` markers,
+ * emit a nested (secondary) tab bar + nested panels scoped to this parent tab;
+ * otherwise render the nodes flat exactly as before. `parentSlug` scopes the
+ * nested group so the TAB_SCRIPT can persist the active nested tab per parent.
+ */
+function renderTabContent(text, parentSlug) {
+  const nested = splitNestedTabs(text);
+  if (!nested) return renderNodes(parseNodes(text));
+  const bar = nested
+    .map(
+      (n, idx) =>
+        `<button class="subtab" role="tab" aria-selected="${idx === 0 ? "true" : "false"}" data-subtab="${slugify(n.name)}">${esc(n.name)}</button>`,
+    )
+    .join("");
+  const panels = nested
+    .map(
+      (n, idx) =>
+        `<section id="${parentSlug}--${slugify(n.name)}" class="subpanel${idx === 0 ? " active" : ""}" role="tabpanel" data-subpanel="${slugify(n.name)}">\n${renderNodes(parseNodes(n.text))}\n</section>`,
+    )
+    .join("\n");
+  return `<div class="subtabgroup" data-subtab-group="${parentSlug}"><div class="subtabs" role="tablist" aria-label="Nested sections">${bar}</div>${panels}</div>`;
 }
 
 // ---------------------------------------------------------------------------
@@ -1064,6 +1224,59 @@ function renderProgressBlock(opts, rawLines) {
   );
 }
 
+// Content-workspace status pill. A small colored chip authored in the .doc.md
+// source ("drafted" until a piece moves) so a content doc is scannable at a
+// glance. Tokens reused from the theme: drafted = muted/neutral (no color
+// class), ready = accent, scheduled = amber/warning, posted = green/success.
+// Unknown values fall back to the neutral "drafted" look so a typo never breaks.
+const STATUS_PILL = {
+  drafted: { label: "Drafted", cls: "" },
+  ready: { label: "Ready", cls: "ready" },
+  scheduled: { label: "Scheduled", cls: "scheduled" },
+  posted: { label: "Posted", cls: "posted" },
+};
+function statusPill(value) {
+  const key = String(value ?? "drafted")
+    .trim()
+    .toLowerCase();
+  const def = STATUS_PILL[key] || STATUS_PILL.drafted;
+  const cls = def.cls ? ` ${def.cls}` : "";
+  return `<span class="statuspill${cls}" data-status="${escAttr(key)}">${esc(def.label)}</span>`;
+}
+
+// :::status {"label":"X thread","value":"scheduled"}  — standalone pill row, for
+// when a status marker is wanted outside a :::copy panel (e.g. a heading line).
+function renderStatusBlock(opts, raw) {
+  const label = opts.label || raw.filter((l) => l.trim()).join(" ").trim();
+  const labelHtml = label
+    ? `<span class="statuslabel">${inline(label)}</span>`
+    : "";
+  return `<div class="statusrow">${labelHtml}${statusPill(opts.value)}</div>`;
+}
+
+// :::copy {"label":"X thread","status":"drafted"}  — a content-workspace panel:
+// a header (label + optional status pill + Copy button) over the raw block text
+// shown as readable, line-break-preserving prose. The Copy button copies the
+// EXACT raw text (not the rendered HTML) via the inlined COPY_SCRIPT, which
+// reads the byte-faithful payload off the panel's data-copy attribute.
+function renderCopyBlock(opts, raw) {
+  // Trim only leading/trailing blank lines; preserve interior blank lines and
+  // every line break (this is post/thread text, not code).
+  const lines = [...raw];
+  while (lines.length && lines[0].trim() === "") lines.shift();
+  while (lines.length && lines[lines.length - 1].trim() === "") lines.pop();
+  const rawText = lines.join("\n");
+  const label = opts.label || "Content";
+  const pill = opts.status ? statusPill(opts.status) : "";
+  // Visible body: escape for HTML but keep newlines (CSS white-space:pre-wrap on
+  // .copybody renders them). The exact clipboard payload rides the data-copy
+  // attribute (escAttr-encoded), so it round-trips verbatim regardless of what
+  // the body contains — no </script> break-out, no DOM re-escaping.
+  const bodyHtml = esc(rawText);
+  const payload = escAttr(rawText);
+  return `<div class="copyblock" data-copyblock data-copy="${payload}"><div class="copyhead"><span class="copylabel">${inline(label)}</span><div class="copymeta">${pill}<button type="button" class="copybtn" data-copybtn>Copy</button></div></div><div class="copybody">${bodyHtml}</div></div>`;
+}
+
 function renderBlock(node) {
   const { name, opts, raw } = node;
   switch (name) {
@@ -1102,6 +1315,10 @@ function renderBlock(node) {
     }
     case "cards":
       return renderCards(raw);
+    case "copy":
+      return renderCopyBlock(opts, raw);
+    case "status":
+      return renderStatusBlock(opts, raw);
     case "questions":
       return renderQuestions(raw);
     case "progress":
@@ -1429,18 +1646,18 @@ ${BACK_LINK}
       .map((name, idx) => {
         const key = name.toLowerCase();
         const authored = namedMap.get(key);
+        const parentSlug = slugify(name);
         let content = "";
         let present = false;
         if (idx === 0 && !authored) {
-          content = renderNodes(
-            parseNodes(
-              (loose ? loose + "\n" : "") +
-                (namedMap.get(tabNames[0].toLowerCase()) || ""),
-            ),
+          content = renderTabContent(
+            (loose ? loose + "\n" : "") +
+              (namedMap.get(tabNames[0].toLowerCase()) || ""),
+            parentSlug,
           );
           present = true; // main tab always shown (carries the lede body)
         } else if (authored != null) {
-          content = renderNodes(parseNodes(authored));
+          content = renderTabContent(authored, parentSlug);
           present = true;
         } else if (data.kind === KIND_PRD && key === "progress") {
           content = autoProgress(state, data.progress, data);
@@ -1519,6 +1736,60 @@ const RELOAD_SCRIPT = `<script>
   })();
 </script>`;
 
+// Copyable content blocks (:::copy). Tiny, inlined, no deps: each Copy button
+// grabs the EXACT raw text off its panel's data-copy attribute (never the
+// rendered HTML) and writes it to the clipboard via navigator.clipboard, with a
+// brief "Copied ✓" state. Falls back to a hidden-textarea execCommand copy when
+// the async Clipboard API is unavailable (older/insecure contexts).
+const COPY_SCRIPT = `<script>
+  (function () {
+    var blocks = [].slice.call(document.querySelectorAll("[data-copyblock]"));
+    if (!blocks.length) return;
+    function legacyCopy(text) {
+      var ta = document.createElement("textarea");
+      ta.value = text;
+      ta.style.position = "fixed";
+      ta.style.top = "-1000px";
+      ta.style.opacity = "0";
+      document.body.appendChild(ta);
+      ta.focus();
+      ta.select();
+      var ok = false;
+      try { ok = document.execCommand("copy"); } catch (e) { ok = false; }
+      document.body.removeChild(ta);
+      return ok;
+    }
+    function flash(btn) {
+      if (btn.__t) clearTimeout(btn.__t);
+      btn.textContent = "Copied ✓";
+      btn.classList.add("copied");
+      btn.__t = setTimeout(function () {
+        btn.textContent = "Copy";
+        btn.classList.remove("copied");
+      }, 1500);
+    }
+    blocks.forEach(function (block) {
+      var btn = block.querySelector("[data-copybtn]");
+      if (!btn) return;
+      btn.addEventListener("click", function () {
+        var text = block.getAttribute("data-copy") || "";
+        try {
+          if (navigator.clipboard && navigator.clipboard.writeText) {
+            navigator.clipboard.writeText(text).then(
+              function () { flash(btn); },
+              function () { if (legacyCopy(text)) flash(btn); }
+            );
+          } else if (legacyCopy(text)) {
+            flash(btn);
+          }
+        } catch (e) {
+          if (legacyCopy(text)) flash(btn);
+        }
+      });
+    });
+  })();
+</script>`;
+
 function wrapDoc(data, theme, header, main, script, extraHead = "") {
   return `<!doctype html>
 <html lang="en" data-doc-title="${escAttr(data.title)}" data-doc-kind="${escAttr(data.kind)}" data-doc-date="${escAttr(data.date)}" data-doc-source="${escAttr(data.slug)}">
@@ -1535,6 +1806,7 @@ ${theme}
 ${header}
 ${main}
 </main>${script}
+${COPY_SCRIPT}
 ${RELOAD_SCRIPT}
 </body>
 </html>
@@ -1849,10 +2121,29 @@ CUSTOM TABS (split a long PRD/working-doc into explainer tabs)
   keys; the first tab is shown by default. Omit \`tabs\`/\`@tab\` for the classic
   single-scroll PRD (PRD / Progress / Ledger).
 
+NESTED TABS (a second level inside one top-level tab)
+  Inside any top-level \`@tab\` region, add \`@@tab <Name>\` (double-at) markers to
+  give that one panel its own secondary tab bar — e.g. a piece's panel showing
+  "X thread" / "LinkedIn" / "Article". Everything after a \`@@tab Name\` line, up to
+  the next \`@@tab\`, the next top-level \`@tab\`, or EOF, is one nested panel; text
+  before the first \`@@tab\` (intro prose) joins the first nested panel. A top-level
+  \`@tab\` region with NO \`@@tab\` markers renders exactly as before. The active
+  nested tab is persisted per parent tab, so reopening a parent restores its last
+  nested tab. Example:
+    @tab Piece A
+    @@tab X thread
+    ...thread draft...
+    @@tab LinkedIn
+    ...linkedin post...
+    @@tab Article
+    ...long-form...
+
 BLOCKS (:::name [json-opts] ... :::)
   :::callout {"tone":"green","strong":"Verdict:"}   panel; tone accent|green|amber|red
   :::rows                Label :: value             definition rows ({"variant":"phase"} for roadmap)
   :::cards               ### Title + body           2-6 parallel concept cards
+  :::copy {"label":"X thread","status":"drafted"}   copyable content panel: label + status pill + Copy button over readable, line-break-preserving text (status: drafted|ready|scheduled|posted)
+  :::status {"label":"X thread","value":"scheduled"}   standalone status pill row (value: drafted|ready|scheduled|posted)
   :::decisions           Label :: [Decided] reason  decision rows (green/amber/red emphasis)
   :::questions           - id/title/tag/question/recommendation/answer   blocking question cards
   :::progress {"percent":61,"note":"..."}           bar + ### Done/Next/Risk cards
@@ -1860,6 +2151,7 @@ BLOCKS (:::name [json-opts] ... :::)
   :::resources           Label :: href              resource/artifact tree (indent for children)
   :::html                ...                         raw passthrough (bespoke SVG only)
   @tab <Name>            tab divider (PRD/working-doc — see CUSTOM TABS); ## Heading; - / 1. lists; \`code\`; **bold**; [t](url)
+  @@tab <Name>           nested tab divider inside a top-level @tab region (see NESTED TABS)
 
 COMMANDS
   node scripts/doc-kit.mjs new --kind <kind> --slug <slug> [--title "..."]
