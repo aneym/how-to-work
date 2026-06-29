@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.3.1
+
+- `htw init` now writes a stable project-specific docs port (`serve.port`, `devUrlBase`) so multiple product docs servers can run at once instead of fighting over `8765`.
+- New `htw link [path]` command prints the browser URL for a rendered doc and prefers configured Tailscale (`serve.tailscale.enabled`) over localhost.
+- Skills now require agents to serve docs and hand back the Tailscale/public URL first; raw HTML paths and localhost links are fallback-only.
+- Starter configs now use `/docs` as the docs index route to match the bundled server.
+
 ## 0.3.0
 
 - `htw init` now seeds the canonical **How-To-Work** packet (a doc-about-docs explainer + an authoring cheatsheet) into a fresh repo and builds it, so every project starts with the same searchable reference set. Opt out with `--no-seed`.

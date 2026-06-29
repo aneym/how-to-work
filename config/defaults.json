@@ -8,7 +8,7 @@
     "sourcesDir": "docs/sources",
     "prdsDir": "docs/prds",
     "plansDir": "docs/plans",
-    "docsIndexRoute": "/prds",
+    "docsIndexRoute": "/docs",
     "stagesPath": null
   },
   "answerGate": { "base": "/api/hwq", "mode": "none" }

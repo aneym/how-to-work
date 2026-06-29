@@ -25,6 +25,7 @@
 import { existsSync, readFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { finalizeServeConfig } from "./links.mjs";
 
 // The installed engine's own root (…/how-to-work). Bundled defaults — config,
 // theme, templates — resolve relative to THIS, never to the consuming repo.
@@ -93,6 +94,7 @@ export function loadConfig(root = process.cwd()) {
     if (source) merged = deepMerge(merged, source);
   }
 
+  finalizeServeConfig(merged, root);
   merged.root = root;
   merged.packageRoot = PACKAGE_ROOT;
   return merged;

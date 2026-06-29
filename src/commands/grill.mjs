@@ -6,7 +6,7 @@
  * "Submit to agent" button posts the answers, prints them between the
  * ===HWQ-ANSWERS-BEGIN===/===HWQ-ANSWERS-END=== markers, and exits 0.
  *
- *   htw grill ask --doc <slug> [--base http://127.0.0.1:8765/api/hwq]
+ *   htw grill ask --doc <slug> [--base http://127.0.0.1:<repo-docs-port>/api/hwq]
  *                 [--key <pathname>] [--prompt "..."] [--no-wait]
  *                 [--timeout 1800000] [--poll 1500] [--stdin-fallback]
  *
@@ -24,6 +24,7 @@
 import { readFileSync, existsSync } from "node:fs";
 import { join } from "node:path";
 import { loadConfig } from "../config.mjs";
+import { localDocsBase } from "../links.mjs";
 
 function arg(args, name, def) {
   const i = args.indexOf("--" + name);
@@ -65,7 +66,7 @@ function resolveBase(args, config) {
   const explicit = arg(args, "base", "");
   let base = explicit || (config.answerGate && config.answerGate.base) || "/api/hwq";
   if (!/^https?:\/\//u.test(base)) {
-    const origin = (config.devUrlBase || "http://127.0.0.1:8765").replace(/\/$/, "");
+    const origin = localDocsBase(config, { root: config.root || process.cwd() }).replace(/\/$/, "");
     base = origin + (base.startsWith("/") ? base : "/" + base);
   }
   return base.replace(/\/$/, "");

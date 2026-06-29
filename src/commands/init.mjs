@@ -19,6 +19,7 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync, readdirSync } from 
 import { spawnSync } from "node:child_process";
 import { basename, dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { projectDocsPort } from "../links.mjs";
 
 const PACKAGE_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..", "..");
 
@@ -87,6 +88,7 @@ function engineVersion() {
  * public engine and lives only in a repo's own overlay if it needs one.
  */
 function starterConfig(root) {
+  const port = projectDocsPort(root);
   return {
     engineVersion: engineVersion(),
     brandName: basename(root) || "Docs",
@@ -97,16 +99,22 @@ function starterConfig(root) {
       sourcesDir: "docs/sources",
       prdsDir: "docs/prds",
       plansDir: "docs/plans",
-      docsIndexRoute: "/prds",
+      docsIndexRoute: "/docs",
       stagesPath: null,
     },
     canonicalUrlBase: null,
-    devUrlBase: "http://127.0.0.1:8765",
+    devUrlBase: `http://127.0.0.1:${port}`,
     // "none" = zero-server copy-only (Submit/poll are 404-safe no-ops). A repo
     // opts into the live grill loop by switching to "local" once it runs
     // `htw serve --answer-gate`. Matches the bundled config/defaults.json floor.
     answerGate: { base: "/api/hwq", mode: "none" },
-    serve: { command: "npm run docs:serve", port: 8765 },
+    serve: {
+      command: "npx github:aneym/how-to-work serve --answer-gate",
+      host: "127.0.0.1",
+      port,
+      portRange: { start: 8600, end: 8999 },
+      tailscale: { enabled: false, urlBase: null },
+    },
   };
 }
 

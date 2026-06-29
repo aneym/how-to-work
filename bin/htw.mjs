@@ -32,12 +32,13 @@ Commands:
   render [<slug>|--all]        Render .doc.md sources to self-contained HTML
   register [--all]             Add rendered docs to the repo catalog
   index                        Build docs/index.html lifecycle dashboard from the JSON catalog
+  link [docs/<path>.html]       Print the browser URL for a rendered doc (prefers configured Tailscale)
   packet                       List + validate doc packets (refs must be registered catalog ids)
   verify                       Validate doc sources against the engine contract
   contract                     Print the doc frontmatter + structure contract
   grill ask --doc <slug>       Open a blocking question gate and wait for answers
                                (--base <answerGate.base>, --no-wait, --stdin-fallback)
-  serve [--answer-gate]        Serve rendered docs/ over loopback (--port 8765)
+  serve [--answer-gate]        Serve rendered docs/ over loopback (repo-specific port)
 
 Options:
   --root <path>                Act on this repo instead of the current directory
@@ -122,6 +123,10 @@ async function main() {
     }
     if (command === "index") {
       const { run } = await import("../src/commands/index.mjs");
+      process.exit(await run({ root, args }));
+    }
+    if (command === "link") {
+      const { run } = await import("../src/commands/link.mjs");
       process.exit(await run({ root, args }));
     }
     if (command === "packet") {

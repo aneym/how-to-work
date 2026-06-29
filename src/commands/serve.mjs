@@ -3,7 +3,7 @@
  * mounted answer-gate so the live grill loop works in any repo (no Homebase, no
  * Hermes, no Convex, no framework).
  *
- *   htw serve [--port 8765] [--answer-gate] [--host 127.0.0.1] [--allow-external]
+ *   htw serve [--port <repo-docs-port>] [--answer-gate] [--host 127.0.0.1] [--allow-external]
  *
  * Static web root is the repo root, but only the /docs/* subtree is served — so
  * a rendered PRD at docs/prds/<slug>/index.html is reachable at the SAME
@@ -22,6 +22,7 @@ import http from "node:http";
 import { statSync, createReadStream } from "node:fs";
 import path from "node:path";
 import { loadConfig } from "../config.mjs";
+import { joinUrl, localDocsBase, preferredDocsBase, tailscaleDocsBase } from "../links.mjs";
 import { createHwqHandler } from "../../server/hwq-server.mjs";
 import { configureStore } from "../../server/hwq-store.mjs";
 
@@ -89,8 +90,8 @@ function serveStatic(req, res, root) {
 
 export async function run({ root, args }) {
   const config = loadConfig(root);
-  const port = Number(arg(args, "port", String((config.serve && config.serve.port) || 8765)));
-  const host = arg(args, "host", "127.0.0.1");
+  const port = Number(arg(args, "port", String(config.serve.port)));
+  const host = arg(args, "host", config.serve.host || "127.0.0.1");
   const allowExternal = flag(args, "allow-external");
   const answerGate = flag(args, "answer-gate");
 
@@ -120,11 +121,18 @@ export async function run({ root, args }) {
       resolve(1);
     });
     server.listen(port, host, () => {
+      const localBase = localDocsBase(config, { root, host, port });
+      const preferred = preferredDocsBase(config, { root, host, port });
       process.stderr.write(
-        `htw serve: docs on http://${host}:${port}/docs/` +
+        `htw serve: docs on ${joinUrl(localBase, "/docs/")}` +
           (answerGate ? ` (answer-gate mounted at /api/hwq)` : ` (static; pass --answer-gate for the live grill loop)`) +
           "\n",
       );
+      if (preferred.kind === "tailscale") {
+        process.stderr.write(`htw serve: tailscale link ${joinUrl(preferred.urlBase, "/docs/")}\n`);
+      } else if ((config.serve && config.serve.tailscale && config.serve.tailscale.enabled) && !tailscaleDocsBase(config)) {
+        process.stderr.write("htw serve: warning: serve.tailscale.enabled is true but no urlBase/host is configured\n");
+      }
       // Long-running: never resolves on its own (Ctrl-C to stop).
     });
   });

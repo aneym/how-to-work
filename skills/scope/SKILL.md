@@ -33,7 +33,7 @@ Load and apply the full `how-we-work` contract, then run exactly the **scoping p
 5. **Grill at the top.** Put `Questions blocking the PRD` as sibling `qcard`s in one `qstack` at the top of the PRD tab, per the `grill` protocol (Problem / Question / Recommendation; stable `Q1…` IDs; batch only independent questions; no reply-shorthand line). Start the gate with `npx github:aneym/how-to-work grill ask --doc <slug> --base <answerGate.base>` unless `answerGate.mode` is `none` (then the Copy-answers button is the equivalent).
 6. **Lifecycle = Draft PRD (Scoping).** Set `state.json` and the Progress tab to scoping; seed `ledger.jsonl` with the working-doc → draft-PRD events.
 7. **Register, serve, verify.** `npx github:aneym/how-to-work register --all` updates the catalog; verify the browser-openable URL returns `200 text/html`. The engine owns the HTML shell and theme — no bespoke per-doc themes.
-8. **Closeout** with the standard `how-we-work` block, PRD URL first (`canonicalUrlBase` when configured, else the served/`devUrlBase` URL).
+8. **Closeout** with the standard `how-we-work` block, PRD URL first from `npx github:aneym/how-to-work link <rendered-html-path>` (Tailscale when configured, then `canonicalUrlBase`, then `devUrlBase`).
 
 ## Where `/scope` stops
 

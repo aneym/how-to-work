@@ -45,7 +45,8 @@ If present, treat the merged config as the repo overlay. It may define:
 | `doc.stagesPath`                      | Repo-local lifecycle-stage source; `null` ⇒ the engine's built-in 6-stage lifecycle.                                                              |
 | `canonicalUrlBase`                    | Public docs host base for links handed back in replies. `null` ⇒ use the served / `devUrlBase` URL.                                               |
 | `devUrlBase`                          | Local/dev URL base for opening the doc in a browser.                                                                                              |
-| `serve.command` / `serve.port`        | How to serve durable docs (a repo command, or `npx github:aneym/how-to-work serve --port <port>`).                                                |
+| `serve.command` / `serve.host` / `serve.port` | How to serve durable docs. `htw init` picks a stable project-specific port so many product docs servers can run at once.                    |
+| `serve.tailscale`                     | Optional Tailscale docs sharing config. When `enabled: true`, the Tailscale URL is the primary browser link to verify and send.                    |
 | `answerGate.base` / `answerGate.mode` | Where grill answers are submitted/polled, and the gate mode (`none` \| `local` \| `custom`).                                                      |
 | `livingExamples`                      | Existing docs/patterns to imitate before inventing a new shape.                                                                                   |
 | `knowledgeCompiler`                   | Repo rules for canonical docs, domain logs, source packets, contradiction handling, generated indexes, and which machine-state files to preserve. |
@@ -58,7 +59,7 @@ The **how-to-work** engine OWNS how an artifact becomes a native doc: theme, the
 
 1. Author **semantic source** (`.doc.md`: JSON frontmatter + `:::block` components + `@tab`), not HTML — never hand-write a theme or boilerplate the engine already owns.
 2. Use the engine's commands: `npx github:aneym/how-to-work new <kind> <slug>` to scaffold, `render` to emit self-contained HTML, `register --all` to update the catalog, `index` to regenerate the lifecycle dashboard, `verify` to validate, `contract` to print the authoring contract.
-3. Hand back links using the configured docs host (`canonicalUrlBase` for public links, `devUrlBase` for local).
+3. Hand back links using the configured docs host. Use `npx github:aneym/how-to-work link <rendered-html-path>`; it prefers `serve.tailscale` when enabled, then `canonicalUrlBase`, then `devUrlBase`.
 
 The shared skill still owns workflow semantics (what artifact should exist, lifecycle, question protocol, knowledge-compiler classes, closeout). The engine owns rendering.
 
@@ -145,9 +146,9 @@ When the user says something like "plan and link this please" after a discussion
 
 1. Create a concise local HTML decision packet (thesis, operating model, phases, guardrails, open questions, next action).
 2. Verify the file exists and has non-zero bytes.
-3. Serve it using the repo config's `serve.command` (or `npx github:aneym/how-to-work serve`); prefer an existing serve route over creating a new public surface.
+3. Serve it using the repo config's `serve.command` (or `npx github:aneym/how-to-work serve`); prefer the repo's configured `serve.port` and existing Tailscale route over creating a new public surface.
 4. Verify the shared URL returns `200` and `Content-Type: text/html` before declaring it done.
-5. Keep the final reply terse: the link plus verification facts, not a restatement of the whole doc.
+5. Keep the final reply terse: the Tailscale/public browser link plus verification facts, not a localhost URL, raw filepath, or restatement of the whole doc.
 
 ## Canonical Escalation
 
@@ -274,7 +275,7 @@ These are shared built-in kinds. If the repo config defines its own kind taxonom
    - Durable HTML docs support system light/dark mode when the repo requires it.
    - Mobile viewport check passes at 390px wide: no body-level horizontal scroll, no clipped nav text, tables/diagrams scroll inside their own containers, and the first screen shows real content instead of only oversized hero chrome.
    - If served, the URL returns `200 OK` and `Content-Type: text/html`.
-9. Provide the link. Use the repo's configured serve/link commands when present (`canonicalUrlBase` for public links, `devUrlBase` for local). End with the browser URL and absolute editor path to the HTML file. Keep the reply terse — do not restate the artifact contents in chat.
+9. Provide the link. Use the repo's configured serve/link commands when present; `serve.tailscale.enabled` wins over `canonicalUrlBase`, and `devUrlBase` is only the fallback. End with the browser URL and absolute editor path to the HTML file. Keep the reply terse — do not restate the artifact contents in chat.
 
 ## Required HTML Hooks
 

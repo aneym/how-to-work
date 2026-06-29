@@ -33,7 +33,8 @@ npx github:aneym/how-to-work init        # scaffold .agents/skill-config/workflo
 npx github:aneym/how-to-work new --kind prd --slug my-thing --title "My Thing"
 npx github:aneym/how-to-work render docs/prds/my-thing/index.doc.md
 npx github:aneym/how-to-work index       # lifecycle dashboard
-npx github:aneym/how-to-work serve --answer-gate --port 8765
+npx github:aneym/how-to-work serve --answer-gate
+npx github:aneym/how-to-work link docs/prds/my-thing/index.html
 ```
 
 The package is **zero runtime dependencies** — Node built-ins + ESM only. Node ≥ 18.
@@ -73,6 +74,7 @@ dark mode, the Progress/Ledger tabs, and the lifecycle dashboard).
 | `htw render`                | Render `.doc.md` → self-contained HTML.                                           |
 | `htw register`              | Update the docs catalog (`.json`, or splice a `.ts` catalog).                     |
 | `htw index`                 | Emit a static lifecycle dashboard grouped by stage.                               |
+| `htw link [path]`           | Print the browser URL for a rendered doc, preferring configured Tailscale.        |
 | `htw verify`                | Structural + theme checks on a doc.                                               |
 | `htw serve [--answer-gate]` | Loopback static server for `docs/`, optionally mounting the answer-gate.          |
 | `htw grill ask`             | Open an ask, block until the human submits answers in the doc, return them.       |
@@ -102,6 +104,26 @@ Grill cards POST to a same-origin `/api/hwq` endpoint. Three modes via
 One file per repo, in the repo (so it travels): `.agents/skill-config/workflow/config.json`
 (falls back to `.claude/skill-config/...`, then bundled defaults). Everything host- or
 brand-specific lives here — never in the engine.
+
+`htw init` writes a stable project-specific docs port into `serve.port` and
+`devUrlBase`, so multiple product docs servers can run at once without all fighting
+for `8765`. To make the closeout link tailnet-friendly, enable Tailscale in that
+same config:
+
+```json
+{
+  "serve": {
+    "port": 8766,
+    "tailscale": {
+      "enabled": true,
+      "urlBase": "https://studio.tailf266ac.ts.net:8768"
+    }
+  }
+}
+```
+
+When Tailscale is enabled, `htw link <rendered-html>` and the skills prefer that URL
+over localhost.
 
 ## License
 
