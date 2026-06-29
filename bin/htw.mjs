@@ -28,6 +28,7 @@ Usage:
 Commands:
   init [--migrate] [--force]   Write .agents/skill-config/workflow/config.json (stamps engineVersion)
   check [--online]             Validate the repo config against this engine (version + schema drift)
+  interfaces [--force]         Install project-local skills/commands for Codex, Claude, and agents
   new <kind> <slug>            Scaffold a new .doc.md source (kinds: report | working-doc | prd)
   render [<slug>|--all]        Render .doc.md sources to self-contained HTML
   register [--all]             Add rendered docs to the repo catalog
@@ -111,6 +112,10 @@ async function main() {
     }
     if (command === "check") {
       const { run } = await import("../src/commands/check.mjs");
+      process.exit(await run({ root, args }));
+    }
+    if (command === "interfaces") {
+      const { run } = await import("../src/commands/interfaces.mjs");
       process.exit(await run({ root, args }));
     }
     if (command === "grill") {

@@ -19,6 +19,7 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync, readdirSync } from 
 import { spawnSync } from "node:child_process";
 import { basename, dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { installAgentInterfaces } from "../interface-files.mjs";
 import { projectDocsPort } from "../links.mjs";
 
 const PACKAGE_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..", "..");
@@ -208,6 +209,14 @@ export async function run({ root, args }) {
     `htw init: wrote ${join(".agents", "skill-config", "workflow", "config.json")} ` +
       `(engineVersion ${config.engineVersion}).\n`,
   );
+
+  const interfaces = installAgentInterfaces(root);
+  if (interfaces.written.length) {
+    process.stdout.write(
+      "htw init: installed agent interface files:\n" +
+        interfaces.written.map((p) => `  + ${p}\n`).join(""),
+    );
+  }
 
   // Bootstrap the canonical How-To-Work packet, then build it so the navigator
   // and packet page exist immediately. Opt out with --no-seed.

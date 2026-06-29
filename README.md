@@ -30,6 +30,7 @@ the polish is the shared theme. See the full [examples gallery](examples/GALLERY
 ```bash
 # always-latest, zero install (from GitHub):
 npx github:aneym/how-to-work init        # scaffold .agents/skill-config/workflow/config.json
+npx github:aneym/how-to-work interfaces  # expose /how-to-work and /how-to in local agent UIs
 npx github:aneym/how-to-work new --kind prd --slug my-thing --title "My Thing"
 npx github:aneym/how-to-work render docs/prds/my-thing/index.doc.md
 npx github:aneym/how-to-work index       # lifecycle dashboard
@@ -70,6 +71,7 @@ dark mode, the Progress/Ledger tabs, and the lifecycle dashboard).
 | --------------------------- | --------------------------------------------------------------------------------- |
 | `htw init`                  | Write the per-repo config bundle; stamp the engine version.                       |
 | `htw check`                 | Validate engine version + config schema (CI-friendly, exits non-zero when stale). |
+| `htw interfaces`            | Install project-local skills and slash commands for Codex, Claude, and agents.    |
 | `htw new`                   | Scaffold a `.doc.md` source (PRD / report / working-doc).                         |
 | `htw render`                | Render `.doc.md` → self-contained HTML.                                           |
 | `htw register`              | Update the docs catalog (`.json`, or splice a `.ts` catalog).                     |

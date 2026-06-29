@@ -1,6 +1,6 @@
 {
   "name": "how-to-work",
-  "version": "0.3.1",
+  "version": "0.3.2",
   "description": "How To Work — one zero-dependency engine for the grill protocol, scoping, the how-we-work PRD lifecycle, and the /doc render engine.",
   "type": "module",
   "bin": {

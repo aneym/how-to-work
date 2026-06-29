@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.3.2
+
+- `htw init` now installs project-local `how-to-work` skills and `/how-to-work` plus `/how-to` slash-command shims for `.codex`, `.claude`, and `.agents`.
+- New `htw interfaces [--force]` command installs or refreshes those interface files without rewriting repo config.
+
 ## 0.3.1
 
 - `htw init` now writes a stable project-specific docs port (`serve.port`, `devUrlBase`) so multiple product docs servers can run at once instead of fighting over `8765`.
