@@ -15,6 +15,15 @@ It bundles four things that are really one workflow:
 > answer grill cards in the rendered doc. Agents drive the `htw` CLI — it's a terse,
 > deterministic, machine-readable API, not a human UX.
 
+## Naming
+
+Use **How To Work** for both the engine and the canonical workflow skill.
+
+- Invoke `/how-to-work` for the full PRD/scoping/grill/send-it workflow.
+- Use `/how-to` as the short alias in agent UIs.
+- Use `/scope` for the quick draft-PRD entrypoint and `/grill` for decision-questioning only.
+- `how-we-work` is a legacy compatibility alias for older installs. Do not use it for new prompts, docs, or generated shims.
+
 ## What it looks like
 
 Real rendered output — the flagship PRD (stage bar, decisions, scope, tabs) and a scoping

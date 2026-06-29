@@ -11,7 +11,7 @@ metadata:
 
 Interview the author relentlessly about every aspect of a plan or design until you reach a shared understanding. Walk down each branch of the design tree, resolving dependencies between decisions one at a time. For every question, provide your recommended answer.
 
-This is the canonical grill protocol for the **how-to-work** engine. `/grill` can run standalone over any plan, or as the question phase of `/scope` and `/how-we-work` — in those the cards live at the top of the PRD's first tab and are answered in the browser through the answer gate.
+This is the canonical grill protocol for the **how-to-work** engine. `/grill` can run standalone over any plan, or as the question phase of `/scope` and `/how-to-work` — in those the cards live at the top of the PRD's first tab and are answered in the browser through the answer gate.
 
 If a question can be answered by exploring the codebase, explore the codebase instead of asking.
 

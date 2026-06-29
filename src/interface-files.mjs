@@ -3,12 +3,12 @@ import { dirname, join } from "node:path";
 
 const SKILL_BODY = `---
 name: how-to-work
-description: Project-local How-To-Work docs, PRD, grill, and docs-server workflow. Use when the user asks for /how-to-work, how-to-work setup, docs workflow, PRD or scoping docs, grill questions, docs rendering, docs serving, or Tailscale doc links.
+description: Project-local How To Work docs, PRD, grill, and docs-server workflow. This is the canonical workflow skill; use /how-to-work or /how-to for scoping, PRDs, grill questions, docs rendering, docs serving, and Tailscale doc links.
 ---
 
-# How-To-Work
+# How To Work
 
-This project is configured for the public \`aneym/how-to-work\` engine. Use this local wrapper so the workflow appears in agent interfaces even when global skills are not installed.
+This project is configured for the public \`aneym/how-to-work\` engine. Use \`/how-to-work\` for the full workflow, or \`/how-to\` as the short alias. The old \`how-we-work\` name is a legacy compatibility alias upstream; do not create new prompts or docs around it.
 
 Start by reading:
 
@@ -30,14 +30,15 @@ Rules:
 - Use the configured project docs port; do not reuse another project's server port.
 - Do not hand back a raw HTML filepath as the primary doc link.
 - Keep semantic source in \`docs/sources\`; let the engine render/register/index the HTML.
+- Specialist entrypoints stay available: use \`/scope\` for a quick draft PRD and \`/grill\` for decision-questioning only.
 `;
 
 const COMMAND_BODY = `---
-description: Use the project-local How-To-Work docs, PRD, grill, and docs-server workflow
+description: Use the project-local How To Work docs, PRD, grill, and docs-server workflow
 allowed-tools: Bash, Read, Grep, Edit, Write
 ---
 
-Use the local \`how-to-work\` skill/instructions for this project.
+Use the local \`how-to-work\` skill/instructions for this project. \`how-to-work\` is the canonical name; \`how-we-work\` is only a legacy alias.
 
 Intent:
 

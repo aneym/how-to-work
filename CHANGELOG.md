@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.3.3
+
+- Renamed the canonical workflow skill from `how-we-work` to `how-to-work`, matching the package, CLI, and generated `/how-to-work` command.
+- Kept `how-we-work` as a legacy alias that redirects agents to `how-to-work` instead of preserving two competing workflow concepts.
+- Updated `/scope`, `/grill`, generated interface shims, and docs copy to describe `how-to-work` as the one blessed invocation.
+
 ## 0.3.2
 
 - `htw init` now installs project-local `how-to-work` skills and `/how-to-work` plus `/how-to` slash-command shims for `.codex`, `.claude`, and `.agents`.
@@ -35,7 +41,7 @@ Rendering completeness, a packet model, and a searchable navigator.
 ## 0.1.0
 
 Initial release. A single zero-dependency engine bundling the grill protocol, scoping,
-the how-we-work PRD lifecycle, and the `.doc.md` → HTML render engine.
+the How To Work PRD lifecycle, and the `.doc.md` → HTML render engine.
 
 - `htw` CLI (agent-facing): `init` · `check` · `new` · `render` · `register` · `index` · `verify` · `contract` · `serve` · `grill`.
 - Gorgeous warm-editorial default theme; per-repo re-skin via `config.doc.themeFile` or `config.doc.themeTokens` (no engine fork).

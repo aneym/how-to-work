@@ -1,5 +1,5 @@
 /**
- * stages — the canonical How We Work lifecycle.
+ * stages — the canonical How To Work lifecycle.
  *
  * SEAM-1: the lifecycle used to be read eagerly at module-eval from the consuming
  * repo's `src/lib/stages.json` (doc-kit.mjs:1003-1005). That ENOENT-crashed the
@@ -16,7 +16,7 @@
 import { readFileSync } from "node:fs";
 import { isAbsolute, join } from "node:path";
 
-// The canonical How We Work lifecycle. A PRD renders the stage bar by DEFAULT
+// The canonical How To Work lifecycle. A PRD renders the stage bar by DEFAULT
 // (opt out only via frontmatter "stageBar": false); its `stage` is matched (with
 // aliases) to one of these and drawn as a monochrome segmented bar + status text,
 // in place of a progress %. Keep `sequence` ordered; `aliases` map lowercased

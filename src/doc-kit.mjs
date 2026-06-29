@@ -255,7 +255,7 @@ const TAB_SCRIPT = `<script>
     });
   })();
 
-  /* ----- interactive question cards (How We Work review controls) ----- */
+  /* ----- interactive question cards (How To Work review controls) ----- */
   (function () {
     var groups = document.querySelectorAll("[data-qstack]");
     if (!groups.length) return;
@@ -1379,7 +1379,7 @@ function readJsonMaybe(p) {
   }
 }
 
-// SEAM-1: the canonical How We Work lifecycle (sequence + aliases) is loaded in
+// SEAM-1: the canonical How To Work lifecycle (sequence + aliases) is loaded in
 // configure() via stages.mjs — the inline default unless config.doc.stagesPath
 // overrides it — into module-level STAGE_SEQUENCE / STAGE_ALIASES. A PRD renders
 // the stage bar by DEFAULT (opt out only via frontmatter "stageBar": false); its

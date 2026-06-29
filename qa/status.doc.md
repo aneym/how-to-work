@@ -28,7 +28,7 @@ cli :: **17 features** (F001–F017) — engine command surface: version/help/ro
 theme :: **12 features** (F018–F029) — walnut light/dark token ramp, self-hosted fonts, and the polish layer (focus rings, stagger/crossfade animations, hover lift)
 gate :: **12 features** (F030–F041) — the answer-gate server: delivery modes, the seven HWQ routes, loopback guard, file-backed store, onAnswer backoff, the answer contract
 config :: **27 features** (F042–F068) — six-level config probe + deep merge, every `doc.*` / `answerGate.*` key, the three-tier theme cascade, and the full init / check surface
-skill :: **25 features** (F069–F093) — the four SKILL.md protocols (how-we-work, grill, scope, doc): config-first, PRD scaffold, 6-stage lifecycle, grill loop, send-it ritual, closeout
+skill :: **25 features** (F069–F093) — the four SKILL.md protocols (how-to-work, grill, scope, doc): config-first, PRD scaffold, 6-stage lifecycle, grill loop, send-it ritual, closeout
 hermes :: **6 features** (F094–F099) — the Hermes-readiness contract: npx always-latest, zero deps, stdout/stderr split, deterministic exit codes, config purity, packaged skills
 :::
 
