@@ -22,7 +22,8 @@ import http from "node:http";
 import { statSync, createReadStream } from "node:fs";
 import path from "node:path";
 import { loadConfig } from "../config.mjs";
-import { joinUrl, localDocsBase, preferredDocsBase, tailscaleDocsBase } from "../links.mjs";
+import { joinUrl, localDocsBase, preferredDocsBase, resolveServePort, tailscaleDocsBase } from "../links.mjs";
+import { bind, listActive, portOwner, registryPath, release } from "../registry.mjs";
 import { createHwqHandler } from "../../server/hwq-server.mjs";
 import { configureStore } from "../../server/hwq-store.mjs";
 
@@ -88,15 +89,60 @@ function serveStatic(req, res, root) {
   }
 }
 
+// Print the cross-project registry of active docs servers, one row per LIVE
+// htw server, so a human can see which repo root owns which port at a glance.
+function printStatus() {
+  const active = listActive();
+  process.stdout.write(`htw serve --status — active How-To-Work docs servers (registry: ${registryPath()})\n`);
+  if (active.length === 0) {
+    process.stdout.write("  (none running)\n");
+    return 0;
+  }
+  const rows = active.map((e) => ({
+    port: String(e.port),
+    pid: String(e.pid),
+    root: e.root,
+    host: e.host || "127.0.0.1",
+    since: e.boundAt || "",
+  }));
+  const w = (key, head) => Math.max(head.length, ...rows.map((r) => r[key].length));
+  const wp = w("port", "PORT");
+  const wi = w("pid", "PID");
+  const wr = w("root", "ROOT");
+  const wh = w("host", "HOST");
+  const line = (r) =>
+    `  ${r.port.padEnd(wp)}  ${r.pid.padEnd(wi)}  ${r.root.padEnd(wr)}  ${r.host.padEnd(wh)}  ${r.since}\n`;
+  process.stdout.write(line({ port: "PORT", pid: "PID", root: "ROOT", host: "HOST", since: "SINCE" }));
+  for (const r of rows) process.stdout.write(line(r));
+  return 0;
+}
+
 export async function run({ root, args }) {
+  if (flag(args, "status")) return printStatus();
+
   const config = loadConfig(root);
-  const port = Number(arg(args, "port", String(config.serve.port)));
+  const argPort = arg(args, "port", null);
+  const { port, source, derived, gitRoot } = resolveServePort(config, { root, argPort });
   const host = arg(args, "host", config.serve.host || "127.0.0.1");
   const allowExternal = flag(args, "allow-external");
   const answerGate = flag(args, "answer-gate");
 
   if (!LOOPBACK_HOSTS.has(host) && !allowExternal) {
     process.stderr.write(`htw serve: refusing to bind to non-loopback host "${host}" (pass --allow-external to override)\n`);
+    return 1;
+  }
+
+  // Refuse to squat a port another PROJECT already owns in the shared registry.
+  // (A non-htw process on the port is caught by the real EADDRINUSE below.)
+  const owner = portOwner(port);
+  if (owner && path.resolve(owner.root) !== path.resolve(gitRoot)) {
+    const label = source === "derived" ? `this project's derived port ${port}` : `requested port ${port}`;
+    process.stderr.write(
+      `htw serve: refusing to squat — ${label} is owned by another project:\n` +
+        `    ${owner.root} (pid ${owner.pid}, since ${owner.boundAt})\n` +
+        `  this project (${gitRoot}) derives port ${derived}.\n` +
+        `  free the other server, or pass --port <n> to override.\n`,
+    );
     return 1;
   }
 
@@ -116,15 +162,35 @@ export async function run({ root, args }) {
   });
 
   return new Promise((resolve) => {
+    let bound = false;
+    const cleanup = () => {
+      if (bound) {
+        release({ port });
+        bound = false;
+      }
+    };
+    // Release our registry entry however the process ends.
+    process.once("exit", cleanup);
+    for (const sig of ["SIGINT", "SIGTERM", "SIGHUP"]) {
+      process.once(sig, () => {
+        cleanup();
+        process.exit(0);
+      });
+    }
+
     server.once("error", (err) => {
+      cleanup();
       process.stderr.write(`htw serve: ${err.message}\n`);
       resolve(1);
     });
     server.listen(port, host, () => {
+      bind({ port, root: gitRoot, host, derived });
+      bound = true;
       const localBase = localDocsBase(config, { root, host, port });
       const preferred = preferredDocsBase(config, { root, host, port });
+      const portNote = source === "derived" ? `derived from ${gitRoot}` : source === "pin" ? "pinned in config" : "from --port";
       process.stderr.write(
-        `htw serve: docs on ${joinUrl(localBase, "/docs/")}` +
+        `htw serve: docs on ${joinUrl(localBase, "/docs/")} (port ${port}, ${portNote})` +
           (answerGate ? ` (answer-gate mounted at /api/hwq)` : ` (static; pass --answer-gate for the live grill loop)`) +
           "\n",
       );

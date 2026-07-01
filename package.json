@@ -1,10 +1,13 @@
 {
   "name": "how-to-work",
-  "version": "0.3.5",
+  "version": "0.3.6",
   "description": "How To Work — one zero-dependency engine for the grill protocol, scoping, the How To Work PRD lifecycle, and the /doc render engine.",
   "type": "module",
   "bin": {
     "htw": "bin/htw.mjs"
+  },
+  "scripts": {
+    "test": "node --test test/*.test.mjs"
   },
   "exports": {
     ".": "./src/doc-kit.mjs",
