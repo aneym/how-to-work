@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.3.4
+
+- Attention-ordering law across the workflow skills: whatever the author must read or act on renders at the very top — open grill questions first (nothing above the question stack), then decisions, then content; split into tabs when a section earns it.
+- Grill hygiene law: cards never include questions that are obvious or already carry a high-confidence agent recommendation — the agent decides those, logs `[Decided] … (agent call, reversible)` in Decisions, and reserves the grill for forks only the author's taste, risk tolerance, or private context can settle.
+
 ## 0.3.3
 
 - Renamed the canonical workflow skill from `how-we-work` to `how-to-work`, matching the package, CLI, and generated `/how-to-work` command.

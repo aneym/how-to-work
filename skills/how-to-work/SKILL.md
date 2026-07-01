@@ -1,7 +1,7 @@
 ---
 name: how-to-work
 description: Canonical How To Work workflow for turning fuzzy intent into a working HTML PRD, grilling decisions, tracking progress, and sending approved work through maker/checker loops. Invoke this as /how-to-work or /how-to for non-trivial planning, architecture/workflow design, PRD creation, durable background work, or saying send it.
-version: 0.1.0
+version: 0.2.0
 minEngine: "how-to-work >= 0.1.0 (Node >= 18)"
 metadata:
   tags: [workflow, prd, doc, send-it, progress, ledger, how-to-work]
@@ -101,8 +101,9 @@ The engine's PRD shell is canonical for this class of docs. The engine emits it 
 
 ## Grill protocol
 
-Put `Questions blocking the PRD` near the top of the PRD tab. The full protocol lives in the `grill` skill — apply it here:
+Put `Questions blocking the PRD` **at the very top of the PRD tab — nothing above the question stack but the shell header** while cards are open; the decisions block sits directly beneath, then content (split into tabs when a section earns it). What the author must read or act on always renders first. The full protocol lives in the `grill` skill — apply it here:
 
+- **Grill hygiene:** never post a card that is obvious or that you already have a high-confidence recommendation for — decide it, record `[Decided] … (agent call, reversible)` in `:::decisions`, and reserve cards for forks only the author's taste, risk tolerance, or private context can settle.
 - Batch only independent questions; dependent questions happen one at a time.
 - Each card includes Problem, Question, and a Recommendation; stable IDs `Q1`, `Q2`, `Q3`.
 - **Never end a recommendation with a "Reply X to accept / X &lt;custom&gt;" line** — the recommendation ends with the actual recommendation. Cards are interactive (approve / disapprove + a custom answer per card) and auto-generate the reply shorthand via the Copy-answers button.

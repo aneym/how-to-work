@@ -1,13 +1,18 @@
 ---
 name: doc
 description: "Create polished, workspace-native HTML docs: system explainers, PR/code reviews, research reports, review/decision packets, status pages, and custom editors. Reads a per-repo config bundle for brand, style, output paths, docs host, and scaffold/verify/serve commands. Primarily for understanding, review, and sharing — not execution work orders."
-version: 0.1.0
+version: 0.2.0
 minEngine: "how-to-work >= 0.1.0 (Node >= 18)"
 ---
 
 If the user invoked this skill with trailing text, treat that text as the input for this workflow.
 
 # Doc Skill
+
+## Attention ordering (law)
+
+Whatever the author must read or act on renders at the very top of the doc: open questions first, then decisions, then content. Never bury an ask below the fold. Split long content into tabs when a section earns it so the top of the first tab stays the author's action queue.
+
 
 Create a self-contained HTML artifact that explains, reviews, or surfaces something clearly. `/doc` is for understanding, review, and sharing. `/prd` (or the repo's PRD / send-it workflow) is for execution planning with owners and work lanes.
 

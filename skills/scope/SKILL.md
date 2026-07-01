@@ -1,7 +1,7 @@
 ---
 name: scope
 description: One-line entrypoint that jumps straight into the How To Work scoping phase. Use when someone types `/scope <intent>` to turn a fuzzy idea into a draft HTML PRD with grill questions at the top — no working-doc dithering, no execution. Stops at a grilled draft awaiting answers.
-version: 0.1.0
+version: 0.2.0
 minEngine: "how-to-work >= 0.1.0 (Node >= 18)"
 metadata:
   tags: [workflow, prd, scoping, grill, how-to-work, entrypoint]
@@ -30,7 +30,7 @@ Load and apply the full `how-to-work` contract, then run exactly the **scoping p
 2. **Route the repo** per `how-to-work` ("Serving and repo routing"): the configured main workflow surface by default for cross-cutting/workflow intents; the owning repo for product/repo-specific work. State the routing decision in one line.
 3. **Pick a concise slug** (no `canonical-` prefix) and scaffold the default PRD package: `npx github:aneym/how-to-work new prd <slug>` writes the `.doc.md` source to `doc.prdsDir/<slug>/index.doc.md` (PRD / Progress / Ledger tabs) and also seeds empty `state.json` + `ledger.jsonl` alongside it. The fresh scaffold body is a `:::callout` thesis + `## Problem` + a `:::rows` decision block + a `:::resources` block — no question cards yet; you add the `:::questions` grill block in step 5. Then `render` emits `index.html` into the same `doc.prdsDir/<slug>/` directory (`state.json`/`ledger.jsonl` come from `new`, not `render`).
 4. **Draft the PRD tab** from the intent: problem, goal, non-goals, scope, requirements, acceptance criteria, risks. Fill confidently where the intent is clear; mark genuine unknowns as TBD and convert each into a grill card rather than guessing.
-5. **Grill at the top.** Put `Questions blocking the PRD` as sibling `qcard`s in one `qstack` at the top of the PRD tab, per the `grill` protocol (Problem / Question / Recommendation; stable `Q1…` IDs; batch only independent questions; no reply-shorthand line). Start the gate with `npx github:aneym/how-to-work grill ask --doc <slug> --base <answerGate.base>` unless `answerGate.mode` is `none` (then the Copy-answers button is the equivalent).
+5. **Grill at the very top.** Put `Questions blocking the PRD` as sibling `qcard`s in one `qstack` as the FIRST content of the PRD tab — nothing above it but the shell header — per the `grill` protocol (Problem / Question / Recommendation; stable `Q1…` IDs; batch only independent questions; no reply-shorthand line). Hygiene: only genuine forks make cards; anything obvious or carrying a high-confidence recommendation is decided by the agent and logged `[Decided] … (agent call, reversible)` in `:::decisions`. Start the gate with `npx github:aneym/how-to-work grill ask --doc <slug> --base <answerGate.base>` unless `answerGate.mode` is `none` (then the Copy-answers button is the equivalent).
 6. **Lifecycle = Draft PRD (Scoping).** Set `state.json` and the Progress tab to scoping; seed `ledger.jsonl` with the working-doc → draft-PRD events.
 7. **Register, serve, verify.** `npx github:aneym/how-to-work register --all` updates the catalog; verify the browser-openable URL returns `200 text/html`. The engine owns the HTML shell and theme — no bespoke per-doc themes.
 8. **Closeout** with the standard `how-to-work` block, PRD URL first from `npx github:aneym/how-to-work link <rendered-html-path>` (Tailscale when configured, then `canonicalUrlBase`, then `devUrlBase`).

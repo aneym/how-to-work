@@ -1,7 +1,7 @@
 ---
 name: grill
 description: Interview the author relentlessly about a plan or design, walking the decision tree one dependency at a time, and surface the open forks as interactive question cards at the top of the doc. Use to stress-test a plan before building, or on any 'grill' trigger phrase.
-version: 0.1.0
+version: 0.2.0
 minEngine: "how-to-work >= 0.1.0 (Node >= 18)"
 metadata:
   tags: [workflow, grill, questions, scoping, doc]
@@ -32,7 +32,11 @@ Never hardcode a workspace's brand, host, paths, ports, or commands. Read them f
 - **Every card carries Problem, Question, and a Recommendation.** State the problem precisely, ask the one fork, and recommend the answer you would pick and why.
 - **Stable IDs:** `Q1`, `Q2`, `Q3`, … so answers reference cards unambiguously.
 - **Never end a recommendation with a "Reply X to accept / X &lt;custom&gt;" line.** The recommendation ends with the actual recommendation. The question cards are interactive (approve / disapprove + a custom answer per card) and auto-generate the reply shorthand via the Copy-answers button, so spelling out reply instructions is redundant noise.
-- **Ask only genuine, non-obvious user-preference forks.** If you can pick the right answer from the codebase, evidence, or an obvious default, decide it and record the decision — do not manufacture a question.
+- **Ask only genuine forks (hygiene law).** The grill never contains a question that is obvious or that you already have a high-confidence recommendation for. If the codebase, the evidence, an obvious default, or your own strong recommendation answers it — it is not a grill question: decide it yourself, record it in `:::decisions` as `[Decided] … (agent call, reversible)`, and move on. A card earns its place only when the author's taste, risk tolerance, or private context genuinely decides the answer. Fewer, sharper cards.
+
+## Attention ordering (law)
+
+Whatever the author must read or act on renders **at the very top** of the doc. While grill questions are open, the question stack is the FIRST thing on the doc's first tab — nothing above it but the shell header. Below the open questions: the decisions block, then content. Split long content into tabs when a section earns it, so the top of tab one always stays the author's action queue, not scroll-past material. When the last open card resolves, the decisions block inherits the top.
 
 ## Card shape
 
