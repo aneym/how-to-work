@@ -39,7 +39,9 @@ Commands:
   contract                     Print the doc frontmatter + structure contract
   grill ask --doc <slug>       Open a blocking question gate and wait for answers
                                (--base <answerGate.base>, --no-wait, --stdin-fallback)
-  serve [--answer-gate]        Serve rendered docs/ over loopback (repo-specific port)
+  serve [--answer-gate]        Serve rendered docs/ over loopback on this project's
+                               derived port (--port <n> pins; --status lists every
+                               active htw docs server and its owning repo root)
 
 Options:
   --root <path>                Act on this repo instead of the current directory

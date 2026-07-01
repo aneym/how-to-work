@@ -9,8 +9,10 @@
  *
  * Flags:
  *   --migrate   fold an existing legacy config (.claude/skill-config, or the old
- *               split .agents/skill-config/doc/config.json) into the new unified
- *               file before writing.
+ *               split .agents/skill-config/doc/config.json) AND the repo's
+ *               current canonical unified config (highest precedence) into the
+ *               rewritten file — so a restamp preserves the repo's customization
+ *               and only refreshes the engineVersion stamp and derived docs port.
  *   --force     overwrite an existing unified config.
  *
  * Node ESM, built-ins only.
@@ -20,7 +22,7 @@ import { spawnSync } from "node:child_process";
 import { basename, dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { installAgentInterfaces } from "../interface-files.mjs";
-import { projectDocsPort } from "../links.mjs";
+import { finalizeServeConfig, projectDocsPort } from "../links.mjs";
 
 const PACKAGE_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..", "..");
 
@@ -179,12 +181,13 @@ export async function run({ root, args }) {
     return 1;
   }
 
+  const relTarget = join(".agents", "skill-config", "workflow", "config.json");
   let config = starterConfig(root);
 
   if (migrate) {
     const legacy = findLegacy(root);
     if (legacy.length === 0) {
-      process.stdout.write("htw init --migrate: no legacy .claude/.agents config found; writing a fresh starter.\n");
+      process.stdout.write("htw init --migrate: no legacy .claude/.agents config found.\n");
     } else {
       for (const { path, config: legacyConfig } of legacy) {
         // A legacy SPLIT doc config (…/doc/config.json) keeps its doc keys at the
@@ -196,18 +199,30 @@ export async function run({ root, args }) {
         process.stdout.write(`htw init --migrate: folded ${path}\n`);
       }
     }
+    // Highest precedence: the repo's EXISTING canonical unified config. A restamp
+    // (`init --migrate --force` on an already-configured repo) must preserve the
+    // current canonical values — brand, style, answerGate.mode, serve.tailscale —
+    // not reset them to the generic starter or an older legacy split.
+    const existing = readJson(target);
+    if (existing) {
+      config = deepMerge(config, existing);
+      process.stdout.write(`htw init --migrate: folded existing ${relTarget}\n`);
+    }
   }
 
   // Always stamp THIS engine's version last so the migrated/forced config is
   // marked current and `htw check` can detect future drift.
   config.engineVersion = engineVersion();
 
+  // Normalize serve + adopt this project's canonical git-root-derived docs port,
+  // overriding any stale baked port (unless the config explicitly pins one).
+  finalizeServeConfig(config, root);
+
   mkdirSync(targetDir, { recursive: true });
   writeFileSync(target, `${JSON.stringify(config, null, 2)}\n`, "utf8");
 
   process.stdout.write(
-    `htw init: wrote ${join(".agents", "skill-config", "workflow", "config.json")} ` +
-      `(engineVersion ${config.engineVersion}).\n`,
+    `htw init: wrote ${relTarget} (engineVersion ${config.engineVersion}, docs port ${config.serve.port}).\n`,
   );
 
   const interfaces = installAgentInterfaces(root);

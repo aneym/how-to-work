@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.3.6
+
+- **One canonical docs server per project.** `htw serve` now binds this project's deterministic git-root-derived port (FNV-1a hash of the main-worktree path into `serve.portRange`) instead of a stamped `serve.port`. The derived port wins over a stale or colliding baked value; `serve.port` is only a default now. Pin a fixed port with `--port <n>` or `serve.pinPort: true`.
+- New `htw serve --status` lists every active How-To-Work docs server and the repo root that owns it, read from a shared `~/.htw/servers.json` registry (override with `$HTW_HOME`). Entries are written on bind, removed on release, and dead-pid ghosts are pruned on every read.
+- `htw serve` refuses to squat a port another project already owns in the registry, printing the owner and this project's derived port (a non-htw process on the port still surfaces as the usual `EADDRINUSE`).
+- The port derivation keys off the git **common-dir**, so a repo and all its linked worktrees resolve to the same canonical port.
+- Restamp safety: `htw init --migrate --force` now folds the repo's existing canonical unified config at highest precedence (and refreshes the derived docs port), so restamping preserves brand/style/`answerGate.mode`/`serve.tailscale` instead of resetting them to the generic starter.
+
 ## 0.3.5
 
 - Grill card style law: cards are written for the author as decision-maker — two to four plain sentences, no jargon; technical evidence stays in the doc body, the card carries only the human fork.
