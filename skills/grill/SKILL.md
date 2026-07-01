@@ -29,6 +29,7 @@ Never hardcode a workspace's brand, host, paths, ports, or commands. Read them f
 
 - **One dependent question at a time.** Asking several dependent questions at once is bewildering — wait for the answer to each before the next, because the answer changes what you ask next.
 - **Batch only genuinely independent questions.** When questions do not depend on each other, present them together as sibling cards so the author can answer in one pass.
+- **Write cards for the author as decision-maker, not as an engineer.** Short — two to four plain sentences. No jargon, tool names, or acronyms unless the fork is literally about them; the technical evidence lives in the doc body or sources, the card carries only the human fork and what it costs. If a card needs a paragraph, the question isn't distilled yet.
 - **Every card carries Problem, Question, and a Recommendation.** State the problem precisely, ask the one fork, and recommend the answer you would pick and why.
 - **Stable IDs:** `Q1`, `Q2`, `Q3`, … so answers reference cards unambiguously.
 - **Never end a recommendation with a "Reply X to accept / X &lt;custom&gt;" line.** The recommendation ends with the actual recommendation. The question cards are interactive (approve / disapprove + a custom answer per card) and auto-generate the reply shorthand via the Copy-answers button, so spelling out reply instructions is redundant noise.

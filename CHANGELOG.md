@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.3.5
+
+- Grill card style law: cards are written for the author as decision-maker — two to four plain sentences, no jargon; technical evidence stays in the doc body, the card carries only the human fork.
+
 ## 0.3.4
 
 - Attention-ordering law across the workflow skills: whatever the author must read or act on renders at the very top — open grill questions first (nothing above the question stack), then decisions, then content; split into tabs when a section earns it.
