@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.4.0
+
+The determinism release: the CLI now enforces what the skills used to beg agents to remember, `/htw` becomes the one entrypoint, and `htw doctor` repairs a drifted repo end to end.
+
+- **`/htw` is the canonical invocation** — a dispatcher skill that bootstraps repo context and routes intent (doc / scope / grill / send-it / stage / ledger) itself. Long-form names stay as aliases. New `htw skill <name>` prints any bundled canonical skill so agents always read current law.
+- **`htw doctor [--fix] [--json]`** — one command diagnoses engine/config drift, missing or stale interface shims, stale renders, catalog gaps, stage divergence, missing preserved files, hand-authored PRD dirs, and rotting open questions; `--fix` applies every mechanical repair; judgment items are surfaced for the author (driven by the new `/htw-doctor` skill). Exit codes: 0 healthy · 1 mechanical · 2 judgment-pending.
+- **`state.json` is the stage authority.** Render, catalog, and verify prefer it over frontmatter; `htw verify` FAILS on divergent or lifecycle-unmappable stages. New atomic `htw stage set <slug> <stage>` (alias-tolerant) moves state + frontmatter + ledger + render + catalog in one transaction; `htw stage get` shows each surface.
+- **Atomic ledger + answer ingestion.** `htw ledger add <slug> <event>` appends the one canonical event shape ({ts, event, actor, summary}) and re-renders. `htw grill resolve <slug>` applies pasted answers (Copy-answers packet, shorthand, or gate JSON) to the questions block, decisions, ledger, state, and the rendered page; `htw grill ask --apply` does the same automatically when the gate delivers.
+- **Attention-volume law in the renderer:** agent-call decisions collapse behind a count chip (max 5 author decisions visible), ledgers roll up past the newest 3 days, long tabs grow an auto-generated in-tab section nav (`.secnav`).
+- **Pipeline enforcement:** `htw render` auto-registers (JSON catalogs) and accepts bare slugs; `htw verify` fails stale renders (any input newer than the output) and hand-authored PRD dirs, and grew `--json`; `htw link` probes the URL before you hand it out (`--strict` for CI).
+- **Drift can no longer hide:** every state-changing command runs a <5ms stamp check and prints one warning line with the exact fix; interface shims are version-stamped GENERATED pointers (`/htw`, `/htw-doctor`, plus aliases) that `doctor` audits like config; `htw check` fix strings are pinned to the GitHub ref — the stale npm registry can never be suggested as an upgrade (it was a downgrade).
+- **`inline()` corruption fixed:** prose containing `AC1`/`E2E`/`C4`-style tokens no longer renders as `<code>undefined</code>` (NUL-delimited placeholders). Golden-behavior test suite added (17 new cases across render, lifecycle, doctor).
+
 ## 0.3.6
 
 - **One canonical docs server per project.** `htw serve` now binds this project's deterministic git-root-derived port (FNV-1a hash of the main-worktree path into `serve.portRange`) instead of a stamped `serve.port`. The derived port wins over a stale or colliding baked value; `serve.port` is only a default now. Pin a fixed port with `--port <n>` or `serve.pinPort: true`.

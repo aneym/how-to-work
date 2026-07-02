@@ -25,6 +25,7 @@ import { readFileSync, existsSync } from "node:fs";
 import { join } from "node:path";
 import { loadConfig } from "../config.mjs";
 import { localDocsBase } from "../links.mjs";
+import { applyAnswers, parseAnswersPayload } from "../prd-files.mjs";
 
 function arg(args, name, def) {
   const i = args.indexOf("--" + name);
@@ -169,10 +170,56 @@ async function stdinFallback({ key, slug, questions }) {
   return 0;
 }
 
+/**
+ * htw grill resolve <slug> [--file <path>] [--who <name>]
+ *
+ * The ingestion half of the round-trip the fleet actually uses: the author
+ * answers in chat (Copy-answers packet, shorthand, or gate JSON), and this ONE
+ * command applies it everywhere — answer fields in the :::questions records, a
+ * [Decided] row per answer in :::decisions, ledger events, state bump, and a
+ * re-render (which auto-registers). Reads stdin when --file is absent.
+ */
+async function runResolve({ root, args }) {
+  const slug = args.filter((a) => !a.startsWith("--"))[0];
+  if (!slug) {
+    process.stderr.write("htw grill: usage — htw grill resolve <slug> [--file <path>] [--who <name>]\n");
+    return 64;
+  }
+  const file = arg(args, "file", "");
+  const who = arg(args, "who", "author");
+  let raw;
+  if (file) {
+    raw = readFileSync(file, "utf8");
+  } else {
+    if (process.stdin.isTTY)
+      process.stderr.write("htw grill resolve: paste the answers packet, end with EOF (Ctrl-D):\n");
+    raw = await readStdin();
+  }
+  const answers = parseAnswersPayload(raw);
+  if (!answers.length) {
+    process.stderr.write(
+      "htw grill resolve: no answers recognized — accepted forms: gate JSON ({answers:[…]}), the doc's Copy-answers packet, or shorthand (\"1r — note | 2 custom answer\").\n",
+    );
+    return 1;
+  }
+  const result = applyAnswers(root, slug, answers, { who });
+  for (const s of result.skipped)
+    process.stderr.write(`htw grill resolve: skipped ${s.id} — ${s.reason}\n`);
+  process.stdout.write(
+    `htw grill resolve: applied ${result.applied.length} answer${result.applied.length === 1 ? "" : "s"} to ${slug} ` +
+      `(source + decisions + ledger + state${result.renderStatus === 0 ? " + re-render" : "; RE-RENDER FAILED"}); ` +
+      `${result.remainingOpen} question${result.remainingOpen === 1 ? "" : "s"} still open.\n`,
+  );
+  return result.renderStatus === 0 ? 0 : 1;
+}
+
 export async function run({ root, args }) {
   const sub = args[0];
+  if (sub === "resolve") return runResolve({ root, args: args.slice(1) });
   if (sub !== "ask") {
-    process.stderr.write("htw grill: usage — htw grill ask --doc <slug> [--base <answerGate.base>]\n");
+    process.stderr.write(
+      "htw grill: usage — htw grill ask --doc <slug> [--base <answerGate.base>] [--apply] | htw grill resolve <slug> [--file <path>]\n",
+    );
     return 64;
   }
   const rest = args.slice(1);
@@ -243,6 +290,18 @@ export async function run({ root, args }) {
         emitAnswers(j.submission);
         if (j.delivery) {
           process.stdout.write("\n----- delivery -----\n" + JSON.stringify(j.delivery, null, 2) + "\n");
+        }
+        // --apply: close the loop mechanically — the #1 gate failure was
+        // answers arriving while every doc surface stayed stale.
+        if (flag(rest, "apply") && slug && Array.isArray(j.submission.answers)) {
+          try {
+            const res = applyAnswers(root, slug, j.submission.answers, { who: "author" });
+            process.stderr.write(
+              `htw grill: applied ${res.applied.length} answer(s) to ${slug}; ${res.remainingOpen} still open.\n`,
+            );
+          } catch (e) {
+            process.stderr.write(`htw grill: --apply failed — ${e.message}\n`);
+          }
         }
         return 0;
       }

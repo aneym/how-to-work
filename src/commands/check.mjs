@@ -200,18 +200,22 @@ export async function run({ root, args }) {
   const fixes = [];
 
   // --- VERSION axis ---
+  // Fix commands are pinned to the GitHub ref, NEVER `npx <name>@latest`: the
+  // npm registry sat at a stale 0.1.0 for months, so the old @latest fix
+  // string was an active DOWNGRADE for every consumer that ran it.
+  const invoke = `npx --yes github:aneym/${name}`;
   const stamped = config.engineVersion;
   if (!stamped) {
     problems.push("config has no engineVersion stamp");
-    fixes.push(`npx ${name}@latest init --force   # restamp engineVersion (${running})`);
+    fixes.push(`${invoke} init --migrate --force   # restamp engineVersion (${running})`);
   } else {
     const cmp = compareVersions(stamped, running);
     if (cmp < 0) {
       problems.push(`config stamped for engine ${stamped}, but engine ${running} is running (config is behind)`);
-      fixes.push(`npx ${name}@latest init --migrate --force   # restamp to ${running}`);
+      fixes.push(`${invoke} init --migrate --force   # restamp to ${running}`);
     } else if (cmp > 0) {
       problems.push(`config expects engine ${stamped}, but engine ${running} is installed (engine is behind)`);
-      fixes.push(`npm install -g ${name}@latest   # or pin ${name}@${stamped}`);
+      fixes.push(`${invoke} <command>   # the GitHub ref always runs latest main; or update the engine checkout (git pull)`);
     }
   }
 
@@ -219,14 +223,18 @@ export async function run({ root, args }) {
   const schemaProblems = validateSchema(config);
   for (const p of schemaProblems) problems.push(p);
   if (schemaProblems.length) {
-    fixes.push(`npx ${name}@latest init --migrate --force   # rewrite ${found.rel} in the current schema`);
+    fixes.push(`${invoke} init --migrate --force   # rewrite ${found.rel} in the current schema`);
   }
 
   // --- optional: latest published (best-effort, never fails the command) ---
   if (online) {
     const latest = latestPublishedVersion(name);
     if (latest && compareVersions(running, latest) < 0) {
-      warnings.push(`a newer engine is published: ${latest} (running ${running}) — npm i -g ${name}@latest`);
+      warnings.push(`a newer engine is published: ${latest} (running ${running}) — ${invoke} to run it`);
+    } else if (latest && compareVersions(latest, running) < 0) {
+      warnings.push(
+        `the npm registry is STALE (${latest} < running ${running}) — never use \`npx ${name}@latest\`; use ${invoke}`,
+      );
     }
   }
 

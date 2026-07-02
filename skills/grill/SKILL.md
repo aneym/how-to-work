@@ -61,10 +61,10 @@ Do not nest question cards inside one another — each is a sibling `qcard`. Do 
 After posting questions, **start the gate** so answers come back live:
 
 ```bash
-npx github:aneym/how-to-work grill ask --doc <slug> --base <answerGate.base>
+npx --yes github:aneym/how-to-work grill ask --doc <slug> --apply
 ```
 
-Run it foreground when you can block, else background. It opens the ask so the doc's question section lights up ("the agent is waiting for your answers"), polls the gate, and hands you the structured answers the instant the author clicks "Submit to agent" in the doc — no copy/paste, over loopback or a tunnel alike. Flags: `--no-wait` (open without blocking), `--stdin-fallback` (on connection-refused, print the questions and read structured shorthand from stdin, emitting the same `===HWQ-ANSWERS-BEGIN/END===` contract).
+Run it foreground when you can block, else background. It opens the ask so the doc's question section lights up ("the agent is waiting for your answers"), polls the gate, and — with `--apply` — writes the answers into every surface the instant the author clicks "Submit to agent" in the doc — no copy/paste, over loopback or a tunnel alike. Flags: `--no-wait` (open without blocking), `--stdin-fallback` (on connection-refused, print the questions and read structured shorthand from stdin, emitting the same `===HWQ-ANSWERS-BEGIN/END===` contract).
 
 Gate behavior follows `answerGate.mode`:
 
@@ -74,6 +74,7 @@ Gate behavior follows `answerGate.mode`:
 
 ## After the author answers
 
+- **Answers pasted in chat (packet / shorthand / gate JSON) go through `npx --yes github:aneym/how-to-work grill resolve <slug>`** (stdin or `--file`). It writes the `answer:` fields into the `:::questions` records, appends `[Decided <date>]` rows to `:::decisions`, appends ledger events, bumps state, and re-renders — one command, every surface, nothing hand-edited.
 - A custom or "idk" answer is **not** a close — fold the intent into a sharpened recommendation, present that one card again, and pick the minimal option that still makes the next action obvious. Re-grill until it is genuinely settled.
 - Once settled, move the card into `:::decisions` (`[Decided <date>]`), drop it from the top queue, and append a ledger event.
-- **Update every visible surface in the same pass.** If the author answered, the doc must not still show `open` badges or stale next actions: update the `.doc.md` source, `state.json`, `ledger.jsonl`, re-render, and re-verify the served page. Feedback on a rendered surface edits the **source**, never the HTML.
+- **Every surface updates in the same pass — via `grill resolve` / `stage set` / `ledger add`, not memory.** The doc must never still show `open` badges or stale next actions after an answer; `htw verify` fails stale or divergent surfaces. Feedback on a rendered surface edits the **source**, never the HTML.

@@ -19,8 +19,9 @@ It bundles four things that are really one workflow:
 
 Use **How To Work** for both the engine and the canonical workflow skill.
 
-- Invoke `/how-to-work` for the full PRD/scoping/grill/send-it workflow.
-- Use `/how-to` as the short alias in agent UIs.
+- Invoke **`/htw`** — the canonical entrypoint. It bootstraps repo context and routes intent ("write a doc on X", "scope Y", "grill me", "send it") itself.
+- `/htw-doctor` diagnoses + repairs a repo's whole docs system end to end.
+- `/how-to-work` and `/how-to` are long-form aliases of `/htw`.
 - Use `/scope` for the quick draft-PRD entrypoint and `/grill` for decision-questioning only.
 - `how-we-work` is a legacy compatibility alias for older installs. Do not use it for new prompts, docs, or generated shims.
 
@@ -79,6 +80,7 @@ dark mode, the Progress/Ledger tabs, and the lifecycle dashboard).
 | Command                     | What it does                                                                      |
 | --------------------------- | --------------------------------------------------------------------------------- |
 | `htw init`                  | Write the per-repo config bundle; stamp the engine version.                       |
+| `htw doctor`                | Diagnose + repair the whole docs system (`--fix` applies mechanical repairs).     |
 | `htw check`                 | Validate engine version + config schema (CI-friendly, exits non-zero when stale). |
 | `htw interfaces`            | Install project-local skills and slash commands for Codex, Claude, and agents.    |
 | `htw new`                   | Scaffold a `.doc.md` source (PRD / report / working-doc).                         |
@@ -88,7 +90,11 @@ dark mode, the Progress/Ledger tabs, and the lifecycle dashboard).
 | `htw link [path]`           | Print the browser URL for a rendered doc, preferring configured Tailscale.        |
 | `htw verify`                | Structural + theme checks on a doc.                                               |
 | `htw serve [--answer-gate]` | Loopback static server for `docs/`, optionally mounting the answer-gate.          |
-| `htw grill ask`             | Open an ask, block until the human submits answers in the doc, return them.       |
+| `htw stage set`             | Move a PRD's lifecycle stage on every surface atomically (state is the authority).|
+| `htw ledger add`            | Append a schema-checked ledger event and re-render.                               |
+| `htw grill ask`             | Open an ask, block until the human submits answers in the doc (`--apply` writes them in). |
+| `htw grill resolve`         | Apply pasted answers (packet / shorthand / JSON) to every surface at once.        |
+| `htw skill <name>`          | Print a bundled canonical skill (htw, how-to-work, doc, grill, scope).            |
 
 ## Gorgeous by default, re-skin per repo
 

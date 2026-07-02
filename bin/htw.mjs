@@ -28,17 +28,25 @@ Usage:
 Commands:
   init [--migrate] [--force]   Write .agents/skill-config/workflow/config.json (stamps engineVersion)
   check [--online]             Validate the repo config against this engine (version + schema drift)
+  doctor [--fix] [--json]      Diagnose the whole docs system (drift, staleness, catalog,
+                               shims, stage divergence) and apply the mechanical fixes
   interfaces [--force]         Install project-local skills/commands for Codex, Claude, and agents
   new <kind> <slug>            Scaffold a new .doc.md source (kinds: report | working-doc | prd)
-  render [<slug>|--all]        Render .doc.md sources to self-contained HTML
+  render [<slug>|--all]        Render .doc.md sources to self-contained HTML (auto-registers)
   register [--all]             Add rendered docs to the repo catalog
   index                        Build docs/index.html lifecycle dashboard from the JSON catalog
   link [docs/<path>.html]       Print the browser URL for a rendered doc (prefers configured Tailscale)
   packet                       List + validate doc packets (refs must be registered catalog ids)
-  verify                       Validate doc sources against the engine contract
+  verify [--json]              Validate docs: contract, catalog, staleness, stage divergence
   contract                     Print the doc frontmatter + structure contract
+  skill [<name>]               Print a bundled canonical skill (htw, how-to-work, doc, grill, scope)
+  stage set <slug> <stage>     Move a PRD's lifecycle stage on every surface atomically
+  ledger add <slug> <event>    Append a schema-checked ledger event (+ re-render)
   grill ask --doc <slug>       Open a blocking question gate and wait for answers
-                               (--base <answerGate.base>, --no-wait, --stdin-fallback)
+                               (--base <answerGate.base>, --no-wait, --stdin-fallback,
+                                --apply to write answers into the doc on arrival)
+  grill resolve <slug>         Apply pasted answers (packet / JSON / shorthand) to the
+                               doc, decisions, ledger, state, and re-render
   serve [--answer-gate]        Serve rendered docs/ over loopback on this project's
                                derived port (--port <n> pins; --status lists every
                                active htw docs server and its owning repo root)
@@ -86,6 +94,30 @@ async function readEngineVersion() {
   }
 }
 
+// One quiet warning line when the repo's stamped engineVersion differs from
+// the running engine. Never blocks, never slows the command down meaningfully.
+async function warnOnDrift(root) {
+  try {
+    const { readFileSync, existsSync } = await import("node:fs");
+    const { join } = await import("node:path");
+    const candidates = [
+      join(root, ".agents", "skill-config", "workflow", "config.json"),
+      join(root, ".claude", "skill-config", "workflow", "config.json"),
+    ];
+    const path = candidates.find((p) => existsSync(p));
+    if (!path) return;
+    const stamped = JSON.parse(readFileSync(path, "utf8")).engineVersion;
+    const running = await readEngineVersion();
+    if (stamped && stamped !== running) {
+      process.stderr.write(
+        `htw: engine ${running} running, repo config stamped ${stamped} — run \`npx --yes github:aneym/how-to-work doctor --fix\` to bring this repo current (continuing).\n`,
+      );
+    }
+  } catch {
+    /* never let drift detection break a command */
+  }
+}
+
 async function main() {
   const { resolve } = await import("node:path");
 
@@ -107,6 +139,13 @@ async function main() {
   // this explicitly. Default: the current working directory.
   const root = rootArg ? resolve(process.cwd(), rootArg) : process.cwd();
 
+  // Ambient drift detection: every state-changing command runs a <5ms stamp
+  // compare and prints ONE warning line with the exact fix. Drift used to be
+  // detected only by an opt-in `htw check` nobody ran — hence a fleet spread
+  // from 0.1.0 to 0.3.5.
+  const DRIFT_CHECKED = new Set(["new", "render", "register", "verify", "index", "serve", "grill", "stage", "ledger", "link"]);
+  if (DRIFT_CHECKED.has(command)) await warnOnDrift(root);
+
   try {
     if (command === "init") {
       const { run } = await import("../src/commands/init.mjs");
@@ -123,6 +162,39 @@ async function main() {
     if (command === "grill") {
       const { run } = await import("../src/commands/grill.mjs");
       process.exit(await run({ root, args }));
+    }
+    if (command === "stage") {
+      const { run } = await import("../src/commands/stage.mjs");
+      process.exit(await run({ root, args }));
+    }
+    if (command === "ledger") {
+      const { run } = await import("../src/commands/ledger.mjs");
+      process.exit(await run({ root, args }));
+    }
+    if (command === "doctor") {
+      const { run } = await import("../src/commands/doctor.mjs");
+      process.exit(await run({ root, args }));
+    }
+    if (command === "skill") {
+      // Print a bundled canonical skill so agents always read the CURRENT law
+      // (shims are thin pointers; this is the source they point at).
+      const { readFileSync, readdirSync } = await import("node:fs");
+      const { dirname, join, resolve: res } = await import("node:path");
+      const { fileURLToPath } = await import("node:url");
+      const pkgRoot = res(dirname(fileURLToPath(import.meta.url)), "..");
+      const name = args[0];
+      const skillsDir = join(pkgRoot, "skills");
+      if (!name) {
+        process.stdout.write(`available skills: ${readdirSync(skillsDir).join(", ")}\n`);
+        process.exit(0);
+      }
+      try {
+        process.stdout.write(readFileSync(join(skillsDir, name, "SKILL.md"), "utf8"));
+        process.exit(0);
+      } catch {
+        process.stderr.write(`htw skill: no bundled skill "${name}" (try: ${readdirSync(skillsDir).join(", ")})\n`);
+        process.exit(1);
+      }
     }
     if (command === "serve") {
       const { run } = await import("../src/commands/serve.mjs");
