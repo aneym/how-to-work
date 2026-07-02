@@ -132,11 +132,13 @@ export async function run({ root, args }) {
   }
 
   // --- 1. engine/config axis (delegates to `htw check`) ---
+  let restamped = false;
   let check = htw(root, ["check"]);
   if (check.status !== 0 && fix) {
     const init = htw(root, ["init", "--migrate", "--force"]);
     if (init.status === 0) {
       report.fixed.push("restamped config (init --migrate --force)");
+      restamped = true;
       check = htw(root, ["check"]);
     }
   }
@@ -207,8 +209,10 @@ export async function run({ root, args }) {
         }
       }
     }
+    // A restamp means a NEW engine version — existing HTML was rendered by the
+    // old one, so a full re-render is part of the upgrade, not optional.
     const needsRender =
-      mutated || verify.docs.some((d) => (d.fails || []).some((f) => MECHANICAL_RE.test(f)));
+      mutated || restamped || verify.docs.some((d) => (d.fails || []).some((f) => MECHANICAL_RE.test(f)));
     if (needsRender) {
       const r = htw(root, ["render", "--all"]);
       if (r.status === 0) {
