@@ -21,6 +21,7 @@ import {
   existsSync,
   readdirSync,
   mkdirSync,
+  statSync,
 } from "node:fs";
 import { dirname, join, isAbsolute, relative, sep } from "node:path";
 import { loadConfig, PACKAGE_ROOT } from "./config.mjs";
@@ -674,20 +675,24 @@ function sanitizeRawHtml(html) {
 
 /** Inline markdown: **bold**, `code`, [text](href). Escapes HTML first. */
 function inline(s) {
-  let out = esc(s);
+  // NUL-delimited placeholders: bare `E<n>`/`C<n>` tokens collided with real
+  // prose (AC1, E2E, C4, EC2 …) and the restore passes rewrote it into
+  // `<code>undefined</code>`. NUL can never appear in escaped source text (we
+  // strip any stray one first), so these placeholders are collision-proof.
+  let out = esc(s).replace(/\u0000/g, "");
   // Protect backslash-escaped punctuation (\$, \*, \_ …) so it neither triggers
   // emphasis nor keeps its backslash — restored as the literal char at the end.
   const escLit = [];
   out = out.replace(/\\([\\`*_{}\[\]()#+\-.!$~])/g, (_m, ch) => {
     escLit.push(ch);
-    return `E${escLit.length - 1}`;
+    return `\u0000E${escLit.length - 1}\u0000`;
   });
   // Protect inline code so emphasis/link rules never reach inside it (snake_case,
   // a*b inside backticks must survive verbatim).
   const codeLit = [];
   out = out.replace(/`([^`]+?)`/g, (_m, c) => {
     codeLit.push(c);
-    return `C${codeLit.length - 1}`;
+    return `\u0000C${codeLit.length - 1}\u0000`;
   });
   out = out.replace(/\*\*([^*]+?)\*\*/g, (_m, c) => `<strong>${c}</strong>`);
   // Emphasis only at word boundaries, so intraword _ / * (identifiers, math) stay literal.
@@ -703,8 +708,8 @@ function inline(s) {
     /\[([^\]]+?)\]\(([^)\s]+?)\)/g,
     (_m, t, h) => `<a href="${escAttr(safeUrl(h))}">${t}</a>`,
   );
-  out = out.replace(/C(\d+)/g, (_m, i) => `<code>${codeLit[+i]}</code>`);
-  out = out.replace(/E(\d+)/g, (_m, i) => escLit[+i]);
+  out = out.replace(/\u0000C(\d+)\u0000/g, (_m, i) => `<code>${codeLit[+i]}</code>`);
+  out = out.replace(/\u0000E(\d+)\u0000/g, (_m, i) => escLit[+i]);
   return out;
 }
 
@@ -961,9 +966,26 @@ function splitNestedTabs(text) {
  * otherwise render the nodes flat exactly as before. `parentSlug` scopes the
  * nested group so the TAB_SCRIPT can persist the active nested tab per parent.
  */
+// Attention-volume law: a tab that has grown past comfortable reading gets an
+// in-tab section nav (anchor rail) generated from its ## sections, so long
+// content is navigable instead of one raw scroll. Thresholds: 6+ sections
+// always, or 3+ sections once the tab passes ~1200 words.
+function withSectionNav(html) {
+  const matches = [
+    ...html.matchAll(/<section id="([^"]+)" data-doc-section="[^"]*">\n<h2>([\s\S]*?)<\/h2>/g),
+  ];
+  if (!matches.length) return html;
+  const words = html.replace(/<[^>]*>/g, " ").split(/\s+/).filter(Boolean).length;
+  if (!(matches.length >= 6 || (matches.length >= 3 && words >= 1200))) return html;
+  const links = matches
+    .map((m) => `<a href="#${m[1]}">${m[2].replace(/<[^>]+>/g, "")}</a>`)
+    .join("");
+  return `<nav class="secnav" aria-label="On this tab">${links}</nav>\n${html}`;
+}
+
 function renderTabContent(text, parentSlug) {
   const nested = splitNestedTabs(text);
-  if (!nested) return renderNodes(parseNodes(text));
+  if (!nested) return withSectionNav(renderNodes(parseNodes(text)));
   const bar = nested
     .map(
       (n, idx) =>
@@ -973,7 +995,7 @@ function renderTabContent(text, parentSlug) {
   const panels = nested
     .map(
       (n, idx) =>
-        `<section id="${parentSlug}--${slugify(n.name)}" class="subpanel${idx === 0 ? " active" : ""}" role="tabpanel" data-subpanel="${slugify(n.name)}">\n${renderNodes(parseNodes(n.text))}\n</section>`,
+        `<section id="${parentSlug}--${slugify(n.name)}" class="subpanel${idx === 0 ? " active" : ""}" role="tabpanel" data-subpanel="${slugify(n.name)}">\n${withSectionNav(renderNodes(parseNodes(n.text)))}\n</section>`,
     )
     .join("\n");
   return `<div class="subtabgroup" data-subtab-group="${parentSlug}"><div class="subtabs" role="tablist" aria-label="Nested sections">${bar}</div>${panels}</div>`;
@@ -1196,14 +1218,28 @@ function renderQuestions(rawLines) {
   return `<div class="qreview" data-qstack>${banner}${bar}<div class="qstack">${openInner}</div></div>${resolvedBlock}`;
 }
 function renderLedgerRecords(records) {
-  const inner = records
-    .map((e) => {
-      const body = e.body ? `<p>${inline(e.body)}</p>` : "";
-      const who = e.who ? ` · ${esc(e.who)}` : "";
-      return `<div class="event"><strong>${inline(e.title || "")}</strong>${body}<p class="small">${esc(e.when || "")}${who}</p></div>`;
-    })
-    .join("");
-  return `<div class="timeline">${inner}</div>`;
+  const renderEvent = (e) => {
+    const body = e.body ? `<p>${inline(e.body)}</p>` : "";
+    const who = e.who ? ` · ${esc(e.who)}` : "";
+    return `<div class="event"><strong>${inline(e.title || "")}</strong>${body}<p class="small">${esc(e.when || "")}${who}</p></div>`;
+  };
+  // Attention-volume law: a long-lived ledger is an archive, not a read. Keep
+  // the newest 3 days of events (records arrive reverse-chron) expanded and
+  // roll everything older into one <details>. Undated events stay visible —
+  // hiding what we can't date would silently bury information.
+  const dayOf = (e) => {
+    const m = /^(\d{4}-\d{2}-\d{2})/.exec(String(e.when || ""));
+    return m ? m[1] : null;
+  };
+  const days = [...new Set(records.map(dayOf).filter(Boolean))].sort().reverse();
+  if (records.length <= 10 || days.length < 4)
+    return `<div class="timeline">${records.map(renderEvent).join("")}</div>`;
+  const keep = new Set(days.slice(0, 3));
+  const recent = records.filter((e) => !dayOf(e) || keep.has(dayOf(e)));
+  const older = records.filter((e) => dayOf(e) && !keep.has(dayOf(e)));
+  const recentHtml = `<div class="timeline">${recent.map(renderEvent).join("")}</div>`;
+  if (!older.length) return recentHtml;
+  return `${recentHtml}<details class="tlmore"><summary>${older.length} earlier event${older.length === 1 ? "" : "s"} (before ${days[2]})</summary><div class="timeline">${older.map(renderEvent).join("")}</div></details>`;
 }
 
 function renderProgressBlock(opts, rawLines) {
@@ -1302,16 +1338,29 @@ function renderBlock(node) {
       return `<div class="rows">${inner}</div>`;
     }
     case "decisions": {
-      const inner = raw
+      // Attention-volume law: a human should never wade through the full
+      // decision log. Agent-call rows ("… (agent call, reversible)") always
+      // collapse; author decisions keep only the newest 5 visible (rows are
+      // appended chronologically, so the tail is the fresh context).
+      const rows = raw
         .filter((l) => l.trim())
-        .map((l) => {
-          const pair = splitRow(l);
-          if (!pair) return "";
-          const { span, rest } = emphasis(pair[1]);
-          return `<div class="row"><div class="label">${inline(pair[0])}</div><div>${span}${inline(rest)}</div></div>`;
-        })
-        .join("");
-      return `<div class="rows">${inner}</div>`;
+        .map((l) => splitRow(l))
+        .filter(Boolean);
+      const renderRow = ([label, value]) => {
+        const { span, rest } = emphasis(value);
+        return `<div class="row"><div class="label">${inline(label)}</div><div>${span}${inline(rest)}</div></div>`;
+      };
+      const isAgentCall = ([, value]) => /\bagent call\b/i.test(value);
+      const MAX_VISIBLE = 5;
+      let visible = rows.filter((r) => !isAgentCall(r)).slice(-MAX_VISIBLE);
+      if (!visible.length) visible = rows.slice(-2); // all agent calls: keep the newest two
+      const visibleSet = new Set(visible);
+      const collapsed = rows.filter((r) => !visibleSet.has(r));
+      const visibleHtml = `<div class="rows">${visible.map(renderRow).join("")}</div>`;
+      if (!collapsed.length) return visibleHtml;
+      const agentN = collapsed.filter(isAgentCall).length;
+      const label = `${collapsed.length} more decision${collapsed.length === 1 ? "" : "s"}${agentN ? ` (${agentN} agent call${agentN === 1 ? "" : "s"})` : ""}`;
+      return `${visibleHtml}<details class="dmore"><summary>${label}</summary><div class="rows">${collapsed.map(renderRow).join("")}</div></details>`;
     }
     case "cards":
       return renderCards(raw);
@@ -1337,6 +1386,15 @@ function renderBlock(node) {
   }
 }
 
+// Unique section anchor ids for the whole page (tabs can repeat section names).
+// Reset per assemblePage so `render --all` docs don't leak counters into each other.
+const SECTION_IDS = new Map();
+function sectionAnchor(slug) {
+  const n = (SECTION_IDS.get(slug) || 0) + 1;
+  SECTION_IDS.set(slug, n);
+  return n === 1 ? `s-${slug}` : `s-${slug}-${n}`;
+}
+
 /** Render a list of nodes, wrapping content under each ## into <section data-doc-section>. */
 function renderNodes(nodes) {
   let html = "";
@@ -1350,7 +1408,7 @@ function renderNodes(nodes) {
   for (const node of nodes) {
     if (node.type === "h2") {
       closeSection();
-      html += `\n<section data-doc-section="${slugify(node.text)}">\n<h2>${inline(node.text)}</h2>`;
+      html += `\n<section id="${sectionAnchor(slugify(node.text))}" data-doc-section="${slugify(node.text)}">\n<h2>${inline(node.text)}</h2>`;
       inSection = true;
     } else if (node.type === "h3" || node.type === "h4") {
       html += `\n<${node.type}>${inline(node.text)}</${node.type}>`;
@@ -1377,6 +1435,15 @@ function readJsonMaybe(p) {
   } catch {
     return null;
   }
+}
+
+// state.json for a PRD source (null for non-PRDs / missing). state.json is the
+// stage AUTHORITY everywhere — render, catalog, verify — with frontmatter as a
+// derived mirror.
+function stateForSource(src, data) {
+  if (data.kind !== KIND_PRD) return null;
+  const dir = dirname(isAbsolute(src) ? src : join(ROOT, src));
+  return readJsonMaybe(join(dir, data.statePath || "state.json"));
 }
 
 // SEAM-1: the canonical How To Work lifecycle (sequence + aliases) is loaded in
@@ -1440,8 +1507,10 @@ function autoWorkTicket(state) {
 }
 
 function autoProgress(state, fmProgress, data) {
+  // state.json is the stage AUTHORITY; frontmatter is a derived mirror. (The
+  // old precedence let a stale frontmatter stage win on every surface.)
   const stageBar = stageBarOn(data)
-    ? renderStageBar(data.stage ?? state?.stage, state?.status)
+    ? renderStageBar(state?.stage ?? data.stage, state?.status)
     : null;
   if (!state) return `<p class="small">No state.json found.</p>`;
   const percent =
@@ -1590,6 +1659,7 @@ function outputPathFor(data) {
 
 function assemblePage(parsed) {
   const { data, body, srcPath } = parsed;
+  SECTION_IDS.clear();
   const theme = themeCss();
   const packetBar = renderPacketBar(data);
 
@@ -1686,7 +1756,7 @@ ${BACK_LINK}
 
     main = `${panels}`;
     const stageBarHeader = stageBarOn(data)
-      ? renderStageBar(data.stage ?? state?.stage, state?.status) || ""
+      ? renderStageBar(state?.stage ?? data.stage, state?.status) || ""
       : "";
     const header = `<header>
 ${BACK_LINK}${packetBar}
@@ -1701,7 +1771,7 @@ ${stageBarHeader}
   }
 
   // flat report
-  main = renderNodes(parseNodes(body));
+  main = withSectionNav(renderNodes(parseNodes(body)));
   const header = `<header>
 ${BACK_LINK}${packetBar}
 <h1>${esc(data.title)}</h1>
@@ -1834,9 +1904,24 @@ function discoverSources() {
   return out.sort();
 }
 
+// A bare slug is the natural thing for an agent to pass ("render chat-stack").
+// Resolve it against the PRD and sources dirs before giving up, and die with
+// every path we tried instead of the old bare "no such file".
+function resolveSourceArg(a) {
+  if (existsSync(isAbsolute(a) ? a : join(ROOT, a))) return a;
+  if (!a.includes("/") && !a.endsWith(".md")) {
+    const prd = `${PRDS_DIR}/${a}/index.doc.md`;
+    if (existsSync(join(ROOT, prd))) return prd;
+    const src = `${SOURCES_DIR}/${a}.doc.md`;
+    if (existsSync(join(ROOT, src))) return src;
+    die(`${a}: not found — tried ${a}, ${prd}, ${src}`);
+  }
+  return a; // parseSource reports the missing path itself
+}
+
 function resolveArgsToSources(args) {
   if (args.includes("--all")) return discoverSources();
-  return args.filter((a) => !a.startsWith("--"));
+  return args.filter((a) => !a.startsWith("--")).map(resolveSourceArg);
 }
 
 // ---------------------------------------------------------------------------
@@ -1847,7 +1932,7 @@ function catalogId(data) {
   return data.id || data.slug;
 }
 
-function catalogEntry(data) {
+function catalogEntry(data, state) {
   const href = routeFor(data);
   const sourcePath = outputPathFor(data);
   const lifecycle = data.lifecycle;
@@ -1861,8 +1946,8 @@ function catalogEntry(data) {
     `    tags: ${JSON.stringify(data.tags)},`,
     `    status: ${JSON.stringify(lifecycle)},`,
     `    lifecycle: ${JSON.stringify(lifecycle)},`,
-    `    stage: ${JSON.stringify(data.stage)},`,
-    `    nextAction: ${JSON.stringify(data.nextAction)},`,
+    `    stage: ${JSON.stringify(state?.stage ?? data.stage)},`,
+    `    nextAction: ${JSON.stringify(state?.next_action ?? data.nextAction)},`,
     `    progress: ${data.progress == null ? "null" : Number(data.progress)},`,
   ];
   return `  {\n${fields.join("\n")}\n  }`;
@@ -1909,7 +1994,7 @@ function findEntrySpans(src, arrStart, arrEnd) {
   return spans;
 }
 
-function registerOne(data, srcText) {
+function registerOne(data, srcText, state) {
   const marker = "REVIEW_DOCS: ReviewDoc[] = [";
   const mIdx = srcText.indexOf(marker);
   if (mIdx === -1)
@@ -1958,7 +2043,7 @@ function registerOne(data, srcText) {
   if (arrEnd === -1) die("catalog: could not find end of REVIEW_DOCS array");
 
   const spans = findEntrySpans(srcText, arrStart + 1, arrEnd);
-  const entryText = catalogEntry(data);
+  const entryText = catalogEntry(data, state);
   // does an entry with this id exist?
   for (const [s, e] of spans) {
     const obj = srcText.slice(s, e);
@@ -2247,12 +2332,22 @@ function cmdRender(args) {
     writeFileSync(join(ROOT, out), html);
     console.log(`rendered ${src} -> ${out}`);
   }
+  // Render auto-registers: a rendered-but-uncatalogued doc was the #1 way docs
+  // vanished from the navigator (whole repos with 0 of 5 PRDs registered). The
+  // .ts splice path stays manual — it edits app source, which render must not.
+  if (CATALOG_PATH.endsWith(".json")) {
+    registerJsonCatalog(sources);
+  } else {
+    console.log(
+      `render: note — catalog ${CATALOG_PATH} is a .ts splice; run \`htw register\` to update it`,
+    );
+  }
 }
 
 // SEAM-5 JSON catalog (the public default — docs/catalog.json). The same fields
 // the TS splice writes, but as a plain object the static `htw index` dashboard
 // (and any non-React host) can read with JSON.parse. No TypeScript, no framework.
-function jsonCatalogEntry(data) {
+function jsonCatalogEntry(data, state) {
   return {
     id: catalogId(data),
     kind: data.kind,
@@ -2260,12 +2355,13 @@ function jsonCatalogEntry(data) {
     summary: data.summary,
     href: routeFor(data),
     sourcePath: outputPathFor(data),
-    updatedAt: data.updatedAt || data.date,
+    updatedAt: state?.lastUpdated?.slice?.(0, 10) || data.updatedAt || data.date,
     tags: data.tags,
     status: data.lifecycle,
     lifecycle: data.lifecycle,
-    stage: data.stage ?? null,
-    nextAction: data.nextAction ?? null,
+    // state.json is the stage authority; frontmatter is the fallback mirror.
+    stage: (state?.stage ?? data.stage) ?? null,
+    nextAction: (state?.next_action ?? data.nextAction) ?? null,
     progress: data.progress == null ? null : Number(data.progress),
   };
 }
@@ -2296,7 +2392,7 @@ function registerJsonCatalog(sources) {
     }
     const errs = validateFrontmatter(data);
     if (errs.length) die(`${src}: ${errs.join("; ")}`);
-    const entry = jsonCatalogEntry(data);
+    const entry = jsonCatalogEntry(data, stateForSource(src, data));
     console.log(`${byId.has(entry.id) ? "updated" : "added"} ${data.slug}`);
     byId.set(entry.id, entry);
   }
@@ -2332,7 +2428,7 @@ function cmdRegister(args) {
     }
     const errs = validateFrontmatter(data);
     if (errs.length) die(`${src}: ${errs.join("; ")}`);
-    const res = registerOne(data, text);
+    const res = registerOne(data, text, stateForSource(src, data));
     text = res.text;
     console.log(`${res.action} ${data.slug}`);
   }
@@ -2340,9 +2436,14 @@ function cmdRegister(args) {
 }
 
 function cmdVerify(args) {
-  // Default to --all when called with no arguments.
-  const sources = resolveArgsToSources(args.length ? args : ["--all"]);
+  const asJson = args.includes("--json");
+  const say = asJson ? () => {} : console.log;
+  const positional = args.filter((a) => !a.startsWith("--"));
+  const verifyAll = args.includes("--all") || positional.length === 0;
+  // Default to --all when called with no positional sources.
+  const sources = verifyAll ? discoverSources() : positional.map(resolveSourceArg);
   if (!sources.length) die("verify: no .doc.md sources found — run `htw new` first");
+  const report = { ok: true, theme: { ok: true, fails: [] }, docs: [], unmanaged: [] };
   // Catalog: read the TS source as text (regex check) OR parse the JSON array
   // (SEAM-5) so a `.json` catalog is verified by id/href, not a TS-shaped regex.
   const catalogIsJson = CATALOG_PATH.endsWith(".json");
@@ -2370,17 +2471,45 @@ function cmdVerify(args) {
   const opens = (themeStripped.match(/{/g) || []).length;
   const closes = (themeStripped.match(/}/g) || []).length;
   if (!themeStripped.startsWith(":root")) {
-    console.log(
-      `FAIL theme.css: CSS does not start at :root after stripping comments (stray */ in a comment?)`,
+    report.theme.fails.push(
+      "CSS does not start at :root after stripping comments (stray */ in a comment?)",
     );
-    anyFail = true;
   } else if (opens !== closes) {
-    console.log(
-      `FAIL theme.css: unbalanced braces (${opens} { vs ${closes} })`,
-    );
+    report.theme.fails.push(`unbalanced braces (${opens} { vs ${closes} })`);
+  }
+  if (report.theme.fails.length) {
+    report.theme.ok = false;
     anyFail = true;
+    for (const f of report.theme.fails) say(`FAIL theme.css: ${f}`);
   } else {
-    console.log(`PASS theme.css (CSS parses, ${opens} rules balanced)`);
+    say(`PASS theme.css (CSS parses, ${opens} rules balanced)`);
+  }
+
+  // Bypass detection (--all only): a PRD dir whose index.html has no
+  // index.doc.md source is a hand-authored fork the engine cannot regenerate —
+  // its render silently lies as state.json keeps advancing underneath it.
+  if (verifyAll) {
+    const pdirAbs = join(ROOT, PRDS_DIR);
+    if (existsSync(pdirAbs)) {
+      for (const slug of readdirSync(pdirAbs)) {
+        const d = join(pdirAbs, slug);
+        let isDir = false;
+        try {
+          isDir = statSync(d).isDirectory();
+        } catch {
+          /* ignore */
+        }
+        if (!isDir) continue;
+        if (existsSync(join(d, "index.html")) && !existsSync(join(d, "index.doc.md")))
+          report.unmanaged.push(`${PRDS_DIR}/${slug}`);
+      }
+    }
+    for (const u of report.unmanaged) {
+      anyFail = true;
+      say(
+        `FAIL ${u}: hand-authored PRD dir (index.html with no index.doc.md source) — recreate the source (\`htw new prd <slug>\` + migrate content) or archive the dir; generated HTML must be derivable`,
+      );
+    }
   }
 
   for (const src of sources) {
@@ -2389,7 +2518,8 @@ function cmdVerify(args) {
     try {
       data = parseSource(src).data;
     } catch (e) {
-      console.log(`FAIL ${src}: ${e.message}`);
+      say(`FAIL ${src}: ${e.message}`);
+      report.docs.push({ src, ok: false, fails: [e.message] });
       anyFail = true;
       continue;
     }
@@ -2401,11 +2531,12 @@ function cmdVerify(args) {
       if (!existsSync(outAbs)) fails.push(`generated HTML missing: ${out}`);
       else if (!readFileSync(outAbs, "utf8").includes(String(data.redirectTo)))
         fails.push(`redirect target ${data.redirectTo} not present in ${out}`);
+      report.docs.push({ src, ok: !fails.length, fails });
       if (fails.length) {
         anyFail = true;
-        console.log(`FAIL ${src}\n   - ${fails.join("\n   - ")}`);
+        say(`FAIL ${src}\n   - ${fails.join("\n   - ")}`);
       } else {
-        console.log(`PASS ${src} (redirect -> ${data.redirectTo})`);
+        say(`PASS ${src} (redirect -> ${data.redirectTo})`);
       }
       continue;
     }
@@ -2459,16 +2590,59 @@ function cmdVerify(args) {
         if (!existsSync(join(dir, f)))
           fails.push(`preserved file missing: ${f}`);
     }
+    // stage authority: state.json is truth. Divergent or unmappable stages are
+    // exactly how "Draft PRD" bars sat over "In execution" work for weeks.
+    if (data.kind === KIND_PRD) {
+      const st = stateForSource(src, data);
+      const fmIdx = stageIndex(data.stage);
+      const stIdx = st && st.stage != null ? stageIndex(st.stage) : -2;
+      if (stIdx >= 0 && fmIdx !== stIdx)
+        fails.push(
+          `stage divergence: frontmatter "${data.stage}" vs state.json "${st.stage}" — state.json is authoritative; run \`htw stage set ${data.slug} "${STAGE_SEQUENCE[stIdx]}"\` to sync every surface`,
+        );
+      if (fmIdx < 0 && stIdx < 0)
+        fails.push(
+          `stage "${data.stage}" does not map to the lifecycle (${STAGE_SEQUENCE.join(" → ")})`,
+        );
+    }
+    // staleness: a rendered surface older than its inputs is a lie the reader
+    // cannot detect. Any input newer than the output fails.
+    if (existsSync(outAbs)) {
+      const outM = statSync(outAbs).mtimeMs;
+      const srcAbs = isAbsolute(src) ? src : join(ROOT, src);
+      const inputs = [["source", srcAbs]];
+      if (data.kind === KIND_PRD) {
+        const dir = dirname(srcAbs);
+        inputs.push(
+          ["state.json", join(dir, data.statePath || "state.json")],
+          ["ledger.jsonl", join(dir, data.ledgerPath || "ledger.jsonl")],
+        );
+      }
+      for (const [label, p] of inputs) {
+        if (existsSync(p) && statSync(p).mtimeMs > outM + 1500) {
+          fails.push(
+            `stale render: ${out} is older than ${label} — run \`htw render ${data.slug}\``,
+          );
+          break;
+        }
+      }
+    }
+    report.docs.push({ src, ok: !fails.length, fails });
     if (fails.length) {
       anyFail = true;
-      console.log(`FAIL ${src}\n   - ${fails.join("\n   - ")}`);
+      say(`FAIL ${src}\n   - ${fails.join("\n   - ")}`);
     } else {
-      console.log(`PASS ${src}`);
+      say(`PASS ${src}`);
     }
   }
-  console.log(
-    anyFail ? "verify: FAILED" : `verify: OK (${sources.length} docs)`,
-  );
+  report.ok = !anyFail;
+  if (asJson) {
+    console.log(JSON.stringify(report, null, 2));
+  } else {
+    console.log(
+      anyFail ? "verify: FAILED" : `verify: OK (${sources.length} docs)`,
+    );
+  }
   if (anyFail) process.exit(1);
 }
 

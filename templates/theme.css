@@ -1342,3 +1342,73 @@ section.card {
 .nav-role li {
   font-size: 13.5px;
 }
+
+/* === Attention-volume law (0.4.0): section rail, decision rollup, ledger rollup === */
+
+/* In-tab section nav — auto-generated for long tabs (6+ sections, or 3+ past ~1200 words) */
+.secnav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 6px;
+  margin: 2px 0 16px;
+  padding: 8px 10px;
+  border: 1px solid var(--line);
+  background: var(--soft);
+  border-radius: var(--radius);
+}
+.secnav a {
+  font-size: 12.5px;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  color: var(--muted);
+  text-decoration: none;
+  padding: 3px 8px;
+  border-radius: 999px;
+}
+.secnav a:hover {
+  color: var(--ink);
+  background: color-mix(in oklab, var(--ink) 7%, transparent);
+}
+section[data-doc-section] {
+  scroll-margin-top: 16px;
+}
+
+/* Collapsed decision + ledger rollups share the resolved-questions look */
+.dmore,
+.tlmore {
+  margin-top: 10px;
+  border: 1px solid var(--line);
+  background: var(--soft);
+  border-radius: var(--radius);
+}
+.dmore > summary,
+.tlmore > summary {
+  cursor: pointer;
+  padding: 9px 12px;
+  font-size: 12.5px;
+  font-weight: 650;
+  letter-spacing: 0.01em;
+  color: var(--muted);
+  list-style: none;
+}
+.dmore > summary::-webkit-details-marker,
+.tlmore > summary::-webkit-details-marker {
+  display: none;
+}
+.dmore > summary::before,
+.tlmore > summary::before {
+  content: "▸ ";
+}
+.dmore[open] > summary::before,
+.tlmore[open] > summary::before {
+  content: "▾ ";
+}
+.dmore[open] > summary,
+.tlmore[open] > summary {
+  border-bottom: 1px solid var(--line);
+}
+.dmore > .rows,
+.tlmore > .timeline {
+  padding: 12px;
+  margin-top: 0;
+}
