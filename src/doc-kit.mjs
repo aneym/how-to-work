@@ -977,9 +977,13 @@ function withSectionNav(html) {
   if (!matches.length) return html;
   const words = html.replace(/<[^>]*>/g, " ").split(/\s+/).filter(Boolean).length;
   if (!(matches.length >= 6 || (matches.length >= 3 && words >= 1200))) return html;
+  // Anchors join with a newline (not "") so the nav degrades to a readable,
+  // whitespace-separated list even in a repo whose overlay theme.css hasn't
+  // caught up with a new engine release and doesn't style .secnav yet — the
+  // default bundled theme still turns this into a proper flex/gap chip row.
   const links = matches
     .map((m) => `<a href="#${m[1]}">${m[2].replace(/<[^>]+>/g, "")}</a>`)
-    .join("");
+    .join("\n");
   return `<nav class="secnav" aria-label="On this tab">${links}</nav>\n${html}`;
 }
 
