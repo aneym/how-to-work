@@ -29,6 +29,7 @@ import {
   locatePrd,
   mutateFrontmatter,
   parseQuestionsBlock,
+  readFrontmatter,
   readJsonMaybe,
 } from "../prd-files.mjs";
 
@@ -51,7 +52,9 @@ function slugFromSrc(src) {
   return m ? m[1] : null;
 }
 
-/** Scan every .doc.md for unanswered :::questions records. */
+/** Scan every non-archived .doc.md for unanswered :::questions records. Archived
+ * docs are a closed lifecycle stage — their questions are stale history, not
+ * open judgment items, so `htw doctor` must not nag about them forever. */
 function openQuestionScan(root, config) {
   const doc = config.doc || {};
   const out = [];
@@ -61,6 +64,11 @@ function openQuestionScan(root, config) {
       lines = readFileSync(srcAbs, "utf8").split("\n");
     } catch {
       return;
+    }
+    try {
+      if (readFrontmatter(srcAbs).data.lifecycle === "archive") return;
+    } catch {
+      /* no/invalid frontmatter — fall through and scan anyway */
     }
     const block = parseQuestionsBlock(lines);
     if (!block) return;
