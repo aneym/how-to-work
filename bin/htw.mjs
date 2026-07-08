@@ -18,7 +18,7 @@
  * Node ESM, built-ins only. No dependencies.
  */
 
-const DOC_KIT_COMMANDS = new Set(["new", "render", "register", "verify", "contract"]);
+import { DOC_KIT_COMMANDS, commandHelpLines } from "../src/command-specs.mjs";
 
 const HELP = `htw — How To Work
 
@@ -26,30 +26,7 @@ Usage:
   htw [--root <path>] <command> [...args]
 
 Commands:
-  init [--migrate] [--force]   Write .agents/skill-config/workflow/config.json (stamps engineVersion)
-  check [--online]             Validate the repo config against this engine (version + schema drift)
-  doctor [--fix] [--json]      Diagnose the whole docs system (drift, staleness, catalog,
-                               shims, stage divergence) and apply the mechanical fixes
-  interfaces [--force]         Install project-local skills/commands for Codex, Claude, and agents
-  new <kind> <slug>            Scaffold a new .doc.md source (kinds: report | working-doc | prd)
-  render [<slug>|--all]        Render .doc.md sources to self-contained HTML (auto-registers)
-  register [--all]             Add rendered docs to the repo catalog
-  index                        Build docs/index.html lifecycle dashboard from the JSON catalog
-  link [docs/<path>.html]       Print the browser URL for a rendered doc (prefers configured Tailscale)
-  packet                       List + validate doc packets (refs must be registered catalog ids)
-  verify [--json]              Validate docs: contract, catalog, staleness, stage divergence
-  contract                     Print the doc frontmatter + structure contract
-  skill [<name>]               Print a bundled canonical skill (htw, how-to-work, doc, grill, scope)
-  stage set <slug> <stage>     Move a PRD's lifecycle stage on every surface atomically
-  ledger add <slug> <event>    Append a schema-checked ledger event (+ re-render)
-  grill ask --doc <slug>       Open a blocking question gate and wait for answers
-                               (--base <answerGate.base>, --no-wait, --stdin-fallback,
-                                --apply to write answers into the doc on arrival)
-  grill resolve <slug>         Apply pasted answers (packet / JSON / shorthand) to the
-                               doc, decisions, ledger, state, and re-render
-  serve [--answer-gate]        Serve rendered docs/ over loopback on this project's
-                               derived port (--port <n> pins; --status lists every
-                               active htw docs server and its owning repo root)
+${commandHelpLines()}
 
 Options:
   --root <path>                Act on this repo instead of the current directory

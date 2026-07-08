@@ -23,6 +23,7 @@
  */
 import { readFileSync, existsSync } from "node:fs";
 import { join } from "node:path";
+import { usageFor } from "../command-specs.mjs";
 import { loadConfig } from "../config.mjs";
 import { localDocsBase } from "../links.mjs";
 import { applyAnswers, parseAnswersPayload } from "../prd-files.mjs";
@@ -182,7 +183,7 @@ async function stdinFallback({ key, slug, questions }) {
 async function runResolve({ root, args }) {
   const slug = args.filter((a) => !a.startsWith("--"))[0];
   if (!slug) {
-    process.stderr.write("htw grill: usage — htw grill resolve <slug> [--file <path>] [--who <name>]\n");
+    process.stderr.write(`htw grill: usage — ${usageFor("grill resolve")}\n`);
     return 64;
   }
   const file = arg(args, "file", "");
@@ -217,9 +218,8 @@ export async function run({ root, args }) {
   const sub = args[0];
   if (sub === "resolve") return runResolve({ root, args: args.slice(1) });
   if (sub !== "ask") {
-    process.stderr.write(
-      "htw grill: usage — htw grill ask --doc <slug> [--base <answerGate.base>] [--apply] | htw grill resolve <slug> [--file <path>]\n",
-    );
+    const resolveUsage = usageFor("grill resolve").replace(" [--who <name>]", "");
+    process.stderr.write(`htw grill: usage — ${usageFor("grill ask")} | ${resolveUsage}\n`);
     return 64;
   }
   const rest = args.slice(1);

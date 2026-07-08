@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.5.0
+
+- Added a single command registry for CLI signatures, help text, usage errors, and generated agent interfaces.
+- Generated `/htw` and legacy skill shims now include a Command signatures table so agents can see exact argument forms.
+- `htw ledger add`, `htw stage set`, and `htw stage get` now accept `--doc <slug>` while preserving the positional slug form.
+
 ## 0.4.0
 
 The determinism release: the CLI now enforces what the skills used to beg agents to remember, `/htw` becomes the one entrypoint, and `htw doctor` repairs a drifted repo end to end.

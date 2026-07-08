@@ -10,6 +10,7 @@
  *
  * Node ESM, built-ins only.
  */
+import { firstPositionalArg, resolveDocArg, usageFor } from "../command-specs.mjs";
 import { appendLedger, locatePrd, rerender } from "../prd-files.mjs";
 
 function argValue(args, flag) {
@@ -19,14 +20,14 @@ function argValue(args, flag) {
 
 export async function run({ root, args }) {
   const sub = args[0];
-  if (sub !== "add" || !args[1] || !args[2]) {
-    process.stderr.write(
-      "htw ledger: usage — htw ledger add <slug> <event> [--body \"…\"] [--who <name>] [--no-render]\n",
-    );
+  const resolved = resolveDocArg(args.slice(1));
+  const eventArg = firstPositionalArg(resolved.rest);
+  if (sub !== "add" || !resolved.slug || !eventArg) {
+    process.stderr.write(`htw ledger: usage — ${usageFor("ledger add")}\n`);
     return 64;
   }
-  const slug = args[1];
-  const event = args[2];
+  const slug = resolved.slug;
+  const event = eventArg;
   const summary = argValue(args, "--body") || "";
   const who = argValue(args, "--who") || "htw";
 

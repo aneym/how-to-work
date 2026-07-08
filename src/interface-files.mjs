@@ -12,6 +12,7 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { commandSignaturesMarkdown } from "./command-specs.mjs";
 
 const PACKAGE_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 
@@ -55,6 +56,8 @@ This project uses the public \`aneym/how-to-work\` engine. Bootstrap, then route
 | stage/progress/ledger updates           | \`htw stage set\` / \`htw ledger add\` — never hand-edit  |
 | answers pasted in chat                  | \`htw grill resolve <slug>\` (reads stdin)                |
 | "fix the docs", stale/broken docs       | \`/htw-doctor\`                                           |
+
+${commandSignaturesMarkdown()}
 
 ## Hard rules
 
@@ -138,6 +141,8 @@ Quick rules (full law: \`npx --yes github:aneym/how-to-work skill how-to-work\`)
 - \`state.json\` is the stage authority — move stages with \`htw stage set <slug> <stage>\`.
 - Ledger via \`htw ledger add\`; pasted answers via \`htw grill resolve\`; gate via \`htw grill ask --apply\`.
 - Serve before handoff; send the \`htw link\` URL (Tailscale preferred), never a raw file path.
+
+${commandSignaturesMarkdown()}
 `;
 
 const LEGACY_COMMAND = (v) => `---

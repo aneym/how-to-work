@@ -12,6 +12,7 @@
  *
  * Node ESM, built-ins only.
  */
+import { resolveDocArg, usageFor } from "../command-specs.mjs";
 import {
   appendLedger,
   canonicalStage,
@@ -32,9 +33,9 @@ export async function run({ root, args }) {
   const sub = args[0];
 
   if (sub === "get") {
-    const slug = args[1];
+    const { slug } = resolveDocArg(args.slice(1));
     if (!slug) {
-      process.stderr.write("htw stage: usage — htw stage get <slug>\n");
+      process.stderr.write(`htw stage: usage — ${usageFor("stage get")}\n`);
       return 64;
     }
     const prd = locatePrd(root, slug);
@@ -54,18 +55,16 @@ export async function run({ root, args }) {
     return 0;
   }
 
-  if (sub !== "set" || !args[1] || !args[2]) {
-    process.stderr.write(
-      "htw stage: usage — htw stage set <slug> <stage> [--who <name>] | htw stage get <slug>\n",
-    );
+  const resolved = resolveDocArg(args.slice(1));
+  const input = resolved.rest
+    .filter((a, i, arr) => !a.startsWith("--") && arr[i - 1] !== "--who")
+    .join(" ");
+  if (sub !== "set" || !resolved.slug || !input) {
+    process.stderr.write(`htw stage: usage — ${usageFor("stage set")} | ${usageFor("stage get")}\n`);
     return 64;
   }
 
-  const slug = args[1];
-  const input = args
-    .slice(2)
-    .filter((a, i, arr) => !a.startsWith("--") && arr[i - 1] !== "--who")
-    .join(" ");
+  const slug = resolved.slug;
   const who = argValue(args, "--who") || "htw";
 
   const prd = locatePrd(root, slug);
