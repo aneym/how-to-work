@@ -105,7 +105,7 @@ The engine's PRD shell is canonical for this class of docs. The engine emits it 
 
 Put `Questions blocking the PRD` **at the very top of the PRD tab — nothing above the question stack but the shell header** while cards are open; the decisions block sits directly beneath, then content (split into tabs when a section earns it). What the author must read or act on always renders first. The full protocol lives in the `grill` skill — apply it here:
 
-- **Grill hygiene:** never post a card that is obvious or that you already have a high-confidence recommendation for — decide it, record `[Decided] … (agent call, reversible)` in `:::decisions`, and reserve cards for forks only the author's taste, risk tolerance, or private context can settle.
+- **Grill hygiene:** never post a card that is obvious, that you already have a high-confidence recommendation for, or that has a canonical best answer (security practice, spec, the field's convergent pattern, engineering convention) — decide it, record `[Decided] … (agent call, reversible)` in `:::decisions`. Cards are reserved for taste/preference forks only the author can settle: would two reasonable owners answer differently?
 - Batch only independent questions; dependent questions happen one at a time.
 - Each card includes Problem, Question, and a Recommendation; stable IDs `Q1`, `Q2`, `Q3`.
 - **Never end a recommendation with a "Reply X to accept / X &lt;custom&gt;" line** — the recommendation ends with the actual recommendation. Cards are interactive (approve / disapprove + a custom answer per card) and auto-generate the reply shorthand via the Copy-answers button.
