@@ -371,7 +371,8 @@ const TAB_SCRIPT = `<script>
             card.__showComment ||
             s.decision === "disapprove" ||
             !!(s.comment && s.comment.trim());
-          if (ta) ta.hidden = !showComment;
+          // The answer box is always visible; a reviewer should be able to click into it without a toggle.
+          if (ta) ta.hidden = false;
           var cb = card.querySelector("[data-qcommentbtn]");
           if (cb) cb.setAttribute("aria-expanded", String(showComment));
           var done = isAnswered(card);
@@ -987,9 +988,48 @@ function withSectionNav(html) {
   return `<nav class="secnav" aria-label="On this tab">${links}</nav>\n${html}`;
 }
 
-function renderTabContent(text, parentSlug) {
+// Attention-ordering law, enforced by the RENDERER (not author discipline):
+// open grill cards are the page's action surface, so any :::questions block
+// with at least one unanswered record is moved — together with its immediately
+// preceding ## heading — to the very top of the first content tab. Nothing may
+// render above an open ask except the shell header and an urgent execution
+// banner (leading red-tone :::callout), which keeps its position.
+function isOpenQuestionsBlock(node) {
+  return (
+    node.type === "block" &&
+    node.name === "questions" &&
+    parseRecords(node.raw).some((q) => !q.answer)
+  );
+}
+function isUrgentBanner(node) {
+  return (
+    node.type === "block" && node.name === "callout" && node.opts?.tone === "red"
+  );
+}
+function hoistOpenQuestions(nodes) {
+  const rest = [...nodes];
+  const hoisted = [];
+  for (let i = 0; i < rest.length; ) {
+    if (isOpenQuestionsBlock(rest[i])) {
+      const withHeading = i > 0 && rest[i - 1].type === "h2";
+      const start = withHeading ? i - 1 : i;
+      hoisted.push(...rest.splice(start, withHeading ? 2 : 1));
+      i = start;
+    } else i++;
+  }
+  if (!hoisted.length) return nodes;
+  let cut = 0;
+  while (cut < rest.length && isUrgentBanner(rest[cut])) cut++;
+  return [...rest.slice(0, cut), ...hoisted, ...rest.slice(cut)];
+}
+
+function renderTabContent(text, parentSlug, { hoist = false } = {}) {
+  const prep = (t, applyHoist) => {
+    const nodes = parseNodes(t);
+    return applyHoist ? hoistOpenQuestions(nodes) : nodes;
+  };
   const nested = splitNestedTabs(text);
-  if (!nested) return withSectionNav(renderNodes(parseNodes(text)));
+  if (!nested) return withSectionNav(renderNodes(prep(text, hoist)));
   const bar = nested
     .map(
       (n, idx) =>
@@ -999,7 +1039,7 @@ function renderTabContent(text, parentSlug) {
   const panels = nested
     .map(
       (n, idx) =>
-        `<section id="${parentSlug}--${slugify(n.name)}" class="subpanel${idx === 0 ? " active" : ""}" role="tabpanel" data-subpanel="${slugify(n.name)}">\n${withSectionNav(renderNodes(parseNodes(n.text)))}\n</section>`,
+        `<section id="${parentSlug}--${slugify(n.name)}" class="subpanel${idx === 0 ? " active" : ""}" role="tabpanel" data-subpanel="${slugify(n.name)}">\n${withSectionNav(renderNodes(prep(n.text, hoist && idx === 0)))}\n</section>`,
     )
     .join("\n");
   return `<div class="subtabgroup" data-subtab-group="${parentSlug}"><div class="subtabs" role="tablist" aria-label="Nested sections">${bar}</div>${panels}</div>`;
@@ -1068,15 +1108,27 @@ function renderProse(lines) {
     } else buf.push(l);
   }
   if (buf.length) chunks.push(buf);
+  // A chunk is a list when its first line carries the marker and every other
+  // line either carries the marker too or is an INDENTED continuation of the
+  // previous item (wrapped list items used to fall through to a paragraph with
+  // literal dashes). A flush-left non-marker line disqualifies the chunk.
+  const listItems = (chunk, marker) => {
+    if (!marker.test(chunk[0])) return null;
+    const items = [];
+    for (const l of chunk) {
+      if (marker.test(l)) items.push(l.replace(marker, ""));
+      else if (/^\s+\S/.test(l)) items[items.length - 1] += " " + l.trim();
+      else return null;
+    }
+    return items;
+  };
   return chunks
     .map((chunk) => {
       if (isTableChunk(chunk)) return renderTable(chunk);
-      if (chunk.every((l) => /^\s*-\s+/.test(l))) {
-        return `<ul>${chunk.map((l) => `<li>${inline(l.replace(/^\s*-\s+/, ""))}</li>`).join("")}</ul>`;
-      }
-      if (chunk.every((l) => /^\s*\d+\.\s+/.test(l))) {
-        return `<ol>${chunk.map((l) => `<li>${inline(l.replace(/^\s*\d+\.\s+/, ""))}</li>`).join("")}</ol>`;
-      }
+      const ul = listItems(chunk, /^\s*-\s+/);
+      if (ul) return `<ul>${ul.map((i) => `<li>${inline(i)}</li>`).join("")}</ul>`;
+      const ol = listItems(chunk, /^\s*\d+\.\s+/);
+      if (ol) return `<ol>${ol.map((i) => `<li>${inline(i)}</li>`).join("")}</ol>`;
       return `<p>${inline(chunk.join(" "))}</p>`;
     })
     .join("\n");
@@ -1198,7 +1250,7 @@ function renderQuestions(rawLines) {
       .replace(/\*\*/g, "")
       .replace(/`/g, "");
     const meta = ` data-qtitle="${escAttr(plainTitle)}" data-qtagopen="${escAttr(q.tag || "open")}"`;
-    const controls = `<div class="qactions" data-qactions><button type="button" class="qbtn qapprove" data-decide="approve" aria-pressed="false">Approve</button><button type="button" class="qbtn qreject" data-decide="disapprove" aria-pressed="false">Disapprove</button><button type="button" class="qbtn qcommentbtn" data-qcommentbtn aria-expanded="false">Comment</button></div><textarea class="qcomment" data-qcomment rows="2" placeholder="Comment / custom answer…" hidden></textarea>`;
+    const controls = `<div class="qactions" data-qactions><button type="button" class="qbtn qapprove" data-decide="approve" aria-pressed="false">Approve</button><button type="button" class="qbtn qreject" data-decide="disapprove" aria-pressed="false">Disapprove</button></div><textarea class="qcomment" data-qcomment rows="2" placeholder="Type your answer or a comment…"></textarea>`;
     return `<article class="qcard"${qidAttr}${meta}><div class="qhead"><span class="qtitle">${id}${inline(q.title || "")}</span>${tag}</div>${question}${rec}${controls}</article>`;
   };
   // Resolved questions always live in a collapsed <details> at the bottom — even
@@ -1321,13 +1373,17 @@ function renderBlock(node) {
   const { name, opts, raw } = node;
   switch (name) {
     case "callout": {
-      const tone = opts.tone || "accent";
+      // Tone is whitelisted (it lands in a class and a CSS var name).
+      const tone = ["green", "amber", "red"].includes(opts.tone)
+        ? opts.tone
+        : "accent";
       const style = tone !== "accent" ? ` style="color:var(--${tone})"` : "";
       const strong = opts.strong
         ? `<strong${style}>${esc(opts.strong)}</strong> `
         : "";
       const body = inline(raw.filter((l) => l.trim()).join(" "));
-      return `<div class="callout">${strong}${body}</div>`;
+      const toneCls = tone !== "accent" ? ` tone-${tone}` : "";
+      return `<div class="callout${toneCls}">${strong}${body}</div>`;
     }
     case "rows": {
       const cls = opts.variant === "phase" ? "row phase" : "row";
@@ -1661,6 +1717,18 @@ function outputPathFor(data) {
     : `${PLANS_DIR}/${data.slug}.html`;
 }
 
+// The next human action, surfaced in the shell header. state.json wins for
+// PRDs (stage authority); placeholder-ish values ("n/a", "-", "none") and
+// finished reports render nothing.
+function renderNextLine(data, state) {
+  if (data.kind === KIND_REPORT) return "";
+  const next =
+    state?.next_action ?? state?.progress?.next_action ?? data.nextAction;
+  const text = String(next ?? "").trim();
+  if (!text || /^(n\/?a|none|-+|—|tbd)\.?$/i.test(text)) return "";
+  return `<p class="nextline"><span class="nextlabel">Next</span>${inline(text)}</p>\n`;
+}
+
 function assemblePage(parsed) {
   const { data, body, srcPath } = parsed;
   SECTION_IDS.clear();
@@ -1728,10 +1796,11 @@ ${BACK_LINK}
             (loose ? loose + "\n" : "") +
               (namedMap.get(tabNames[0].toLowerCase()) || ""),
             parentSlug,
+            { hoist: true },
           );
           present = true; // main tab always shown (carries the lede body)
         } else if (authored != null) {
-          content = renderTabContent(authored, parentSlug);
+          content = renderTabContent(authored, parentSlug, { hoist: idx === 0 });
           present = true;
         } else if (data.kind === KIND_PRD && key === "progress") {
           content = autoProgress(state, data.progress, data);
@@ -1767,20 +1836,21 @@ ${BACK_LINK}${packetBar}
 <h1>${esc(data.title)}</h1>
 <p class="lede">${inline(data.summary)}</p>
 ${stageBarHeader}
-<div class="chips">${chips}</div>
+${renderNextLine(data, state)}<div class="chips">${chips}</div>
 <div class="tabs" role="tablist" aria-label="${esc(data.title)} sections">${tabsHtml}</div>
 </header>`;
     script = "\n" + TAB_SCRIPT;
     return wrapDoc(data, theme, header, main, script);
   }
 
-  // flat report
-  main = withSectionNav(renderNodes(parseNodes(body)));
+  // flat report — the whole body is the first (only) content surface, so the
+  // open-grill hoist applies here too.
+  main = withSectionNav(renderNodes(hoistOpenQuestions(parseNodes(body))));
   const header = `<header>
 ${BACK_LINK}${packetBar}
 <h1>${esc(data.title)}</h1>
 <p class="lede">${inline(data.summary)}</p>
-<div class="chips">${chips}</div>
+${renderNextLine(data, null)}<div class="chips">${chips}</div>
 </header>`;
   return wrapDoc(data, theme, header, main, "");
 }
@@ -2235,6 +2305,9 @@ BLOCKS (:::name [json-opts] ... :::)
   :::status {"label":"X thread","value":"scheduled"}   standalone status pill row (value: drafted|ready|scheduled|posted)
   :::decisions           Label :: [Decided] reason  decision rows (green/amber/red emphasis)
   :::questions           - id/title/tag/question/recommendation/answer   blocking question cards
+                         (open cards HOIST: the renderer moves any block with an
+                          unanswered record — plus its ## heading — to the top of
+                          the first tab; only a red-tone :::callout stays above)
   :::progress {"percent":61,"note":"..."}           bar + ### Done/Next/Risk cards
   :::ledger              - title/when/who/body       reverse-chron timeline
   :::resources           Label :: href              resource/artifact tree (indent for children)
