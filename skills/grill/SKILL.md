@@ -33,28 +33,25 @@ Never hardcode a workspace's brand, host, paths, ports, or commands. Read them f
 - **Every card carries Problem, Question, and a Recommendation.** State the problem precisely, ask the one fork, and recommend the answer you would pick and why.
 - **Stable IDs:** `Q1`, `Q2`, `Q3`, … so answers reference cards unambiguously.
 - **Never end a recommendation with a "Reply X to accept / X &lt;custom&gt;" line.** The recommendation ends with the actual recommendation. The question cards are interactive (approve / disapprove + a custom answer per card) and auto-generate the reply shorthand via the Copy-answers button, so spelling out reply instructions is redundant noise.
-- **Ask only genuine forks (hygiene law).** The grill never contains a question that is obvious or that you already have a high-confidence recommendation for. If the codebase, the evidence, an obvious default, or your own strong recommendation answers it — it is not a grill question: decide it yourself, record it in `:::decisions` as `[Decided] … (agent call, reversible)`, and move on. **Canonical-answer test:** when security practice, a spec, the field's convergent pattern, or plain engineering convention names a best answer, it is never a card no matter how weighty the topic feels — asking it just launders the decision onto the author. The card test is: *would two reasonable owners of this project answer differently?* Only taste, preference, risk tolerance, or private context the agent cannot see earns a card. Fewer, sharper cards.
+- **Ask only genuine forks (hygiene law).** The grill never contains a question that is obvious or that you already have a high-confidence recommendation for. If the codebase, the evidence, an obvious default, or your own strong recommendation answers it — it is not a grill question: decide it yourself, write the decision into the body, log it with `htw ledger add`, and move on. **Canonical-answer test:** when security practice, a spec, the field's convergent pattern, or plain engineering convention names a best answer, it is never a card no matter how weighty the topic feels — asking it just launders the decision onto the author. The card test is: *would two reasonable owners of this project answer differently?* Only taste, preference, risk tolerance, or private context the agent cannot see earns a card. Fewer, sharper cards.
 
-## Attention ordering (law)
+## Inline threads (law)
 
-Whatever the author must read or act on renders **at the very top** of the doc. While grill questions are open, the question stack is the FIRST thing on the doc's first tab — nothing above it but the shell header. Below the open questions: the decisions block, then content. Split long content into tabs when a section earns it, so the top of tab one always stays the author's action queue, not scroll-past material. When the last open card resolves, the decisions block inherits the top.
+**Questions sit inline in the doc** (2026-10-15; owner: "make sure you're leaving questions in line in the docs as well if they really need my questioning."). Each open question is a Q/A thread anchored on the exact sentence it is about, and that sentence states the Recommended answer. Write it as a `:::questions` record with a `quote:` field holding that sentence verbatim; the engine highlights the sentence and renders the thread beside it, with no question stack and no decisions block. A record whose quote is missing renders as a detached thread where the block sits; fix its quote. Answered records stop rendering, and `grill resolve` logs each decision to the ledger. Only questions that truly need the owner become threads (product, credential, outbound, spend or voice); decide the rest yourself and log them with `htw ledger add`.
 
-## Card shape
+```
+We ship the web app first. Phones follow next quarter.
 
-Render questions as sibling `qcard` articles inside one `qstack`, near the top of the doc's first tab:
-
-```html
-<div class="qreview" data-qstack>
-  <div class="qstack">
-    <article class="qcard" data-qid="Q1">
-      … Problem / Question / Recommendation …
-    </article>
-    <article class="qcard" data-qid="Q2">…</article>
-  </div>
-</div>
+:::questions
+- id: Q1
+  title: Which platform first?
+  quote: We ship the web app first.
+  question: Web or phones first?
+  recommendation: Web first; the pilot customers are on desktop.
+:::
 ```
 
-Do not nest question cards inside one another — each is a sibling `qcard`. Do not preserve a Markdown `# Title` inside the body; the shell header owns the title. The engine emits this structure for you from `:::questions` blocks in the `.doc.md` source — author the questions, not the HTML.
+Write the body as the final design: the anchored sentence already states the recommendation. Do not preserve a Markdown `# Title` inside the body; the shell header owns the title. Author the records, not the HTML.
 
 ## Start the answer gate — never make the author copy-paste
 
@@ -76,5 +73,5 @@ Gate behavior follows `answerGate.mode`:
 
 - **Answers pasted in chat (packet / shorthand / gate JSON) go through `npx --yes github:aneym/how-to-work grill resolve <slug>`** (stdin or `--file`). It writes the `answer:` fields into the `:::questions` records, appends `[Decided <date>]` rows to `:::decisions`, appends ledger events, bumps state, and re-renders — one command, every surface, nothing hand-edited.
 - A custom or "idk" answer is **not** a close — fold the intent into a sharpened recommendation, present that one card again, and pick the minimal option that still makes the next action obvious. Re-grill until it is genuinely settled.
-- Once settled, move the card into `:::decisions` (`[Decided <date>]`), drop it from the top queue, and append a ledger event.
+- Once settled, rewrite the anchored sentence to state the decision; `grill resolve` closes the thread and logs the decision to the ledger. No decisions block.
 - **Every surface updates in the same pass — via `grill resolve` / `stage set` / `ledger add`, not memory.** The doc must never still show `open` badges or stale next actions after an answer; `htw verify` fails stale or divergent surfaces. Feedback on a rendered surface edits the **source**, never the HTML.

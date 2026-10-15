@@ -170,6 +170,50 @@ test("decisions: agent-call rows collapse; at most 5 author rows stay visible", 
   assert.match(html, /Author call 7/);
 });
 
+test("open questions render as inline threads on their quoted sentence, never as a stack", () => {
+  const root = makeRepo();
+  const body = [
+    "## Plan",
+    "",
+    "We ship the web app first. Phones follow next quarter.",
+    "",
+    ":::questions",
+    "- id: Q1",
+    "  title: Which platform first?",
+    "  quote: We ship the web app first.",
+    "  question: Web or phones first?",
+    "  recommendation: Web first.",
+    "- id: Q2",
+    "  title: Old call",
+    "  question: Settled already?",
+    "  recommendation: Yes.",
+    "  answer: Approved — recommendation accepted.",
+    "- id: Q3",
+    "  title: Orphan",
+    "  quote: This sentence is not in the doc.",
+    "  question: Where does this go?",
+    "  recommendation: Detached thread.",
+    ":::",
+  ].join("\n");
+  writePrd(root, { body });
+  const r = docKit(root, "render", "fixture");
+  assert.equal(r.status, 0, r.stderr);
+  const html = renderedHtml(root);
+  const markup = html.slice(html.indexOf("<body"));
+  assert.doesNotMatch(markup, /class="q(stack|review|card|resolved)\b/);
+  assert.doesNotMatch(markup, /\[Decided/);
+  assert.match(
+    markup,
+    /<div class="qanchored"><aside class="qthread" data-qthread data-qid="Q1"[^>]*>.*?<strong>Recommended:<\/strong> Web first\.<\/p>.*?<\/aside><p><mark class="qanchor" data-qanchor="Q1">We ship the web app first\.<\/mark> Phones follow/s,
+  );
+  assert.match(markup, /<aside class="qthread qdetached" data-qthread data-qid="Q3"/);
+  assert.equal(markup.match(/data-qthread data-qid="Q1"/g).length, 1);
+  assert.doesNotMatch(markup, /data-qid="Q2"/);
+  assert.match(markup, /0 \/ 2 answered/);
+  const v = docKit(root, "verify");
+  assert.doesNotMatch(v.stdout + v.stderr, /question stack rendered/);
+});
+
 test("ledger: events beyond the newest 3 days roll up into a details block", () => {
   const root = makeRepo();
   const lines = [];

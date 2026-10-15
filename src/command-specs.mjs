@@ -98,7 +98,7 @@ export const COMMAND_SPECS = [
   {
     name: "grill resolve",
     usage: "htw grill resolve <slug> [--file <path>] [--who <name>]",
-    summary: "Apply pasted answers (packet / JSON / shorthand) to the doc, decisions, ledger, state, and re-render",
+    summary: "Apply pasted answers (packet / JSON / shorthand): close the inline threads, log each decision to the ledger, bump state, and re-render",
   },
   {
     name: "serve",

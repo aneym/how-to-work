@@ -116,19 +116,26 @@ Mono face :: [Open] System vs self-hosted
 :::
 ```
 
-### 8. Question / grill cards — `:::questions` (interactive)
+### 8. Inline question threads — `:::questions` (interactive)
 
-Records with `id / title / question / recommendation / tag` render as `.qcard`s.
-A card **without** an `answer` is open: it gets live **Approve / Disapprove**
-buttons, a custom-answer textarea, and feeds a sticky action bar
-(`Clear / Copy answers / Submit to agent`). When an agent ask is open the bar
-lights up (`.qasking` pulse). A block where **every** card has a recorded
-`answer` collapses into a low-emphasis `<details class="qresolved">`.
+Records with `id / title / quote / question / recommendation / tag` render as
+`.qthread` asides anchored beside the body sentence that matches `quote`
+verbatim; that sentence gets a `.qanchor` highlight. On wide screens the thread
+sits in the right margin, on narrow screens directly under its sentence. An
+open thread has live **Approve / Disapprove** buttons and an answer textarea,
+and the tab carries one sticky answer bar at its foot
+(`Clear / Copy answers / Submit to agent`). A record whose quote is not found
+renders as a `.qdetached` thread where the block sits. Answered records do not
+render; `grill resolve` logs their decisions to the ledger. There is no
+question stack and no resolved-questions block.
 
 ```
+We ship walnut as the default theme.
+
 :::questions
 - id: Q1
   title: Ship walnut as the default?
+  quote: We ship walnut as the default theme.
   question: Editorial vs louder orange.
   recommendation: Walnut.
   tag: theme

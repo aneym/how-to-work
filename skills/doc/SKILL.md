@@ -11,7 +11,7 @@ If the user invoked this skill with trailing text, treat that text as the input 
 
 ## Attention ordering (law)
 
-Whatever the author must read or act on renders at the very top of the doc: open questions first, then decisions, then content. Never bury an ask below the fold. Split long content into tabs when a section earns it so the top of the first tab stays the author's action queue.
+Open questions sit inline: each is a thread anchored on the exact sentence it is about (`:::questions` record with a `quote:`), with a Recommended answer. No separate Open questions or Decisions section (owner rule, 2026-10-15: "make sure you're leaving questions in line in the docs as well if they really need my questioning."). Only questions the owner must settle become threads; decide the rest and log them. Split long content into tabs when a section earns it.
 
 
 Create a self-contained HTML artifact that explains, reviews, or surfaces something clearly. `/doc` is for understanding, review, and sharing. `/prd` (or the repo's PRD / send-it workflow) is for execution planning with owners and work lanes.

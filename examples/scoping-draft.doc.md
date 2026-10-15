@@ -5,40 +5,14 @@
   "slug": "scoping-draft",
   "date": "2026-06-22",
   "lifecycle": "scoping",
-  "summary": "Enterprise prospects keep stalling at the same gate: 'we can't roll Drift out org-wide until it speaks our identity provider.' Today every SSO setup is a hand-held, multi-day support engagement against a YAML file we edit for them. This draft proposes a self-serve SSO configurator — the customer wires Okta/Entra/Google themselves and we get out of the loop. It is a Draft PRD: the genuine forks are open at the top and need answers before we scope acceptance.",
+  "summary": "Enterprise prospects keep stalling at the same gate: 'we can't roll Drift out org-wide until it speaks our identity provider.' Today every SSO setup is a hand-held, multi-day support engagement against a YAML file we edit for them. This draft proposes a self-serve SSO configurator — the customer wires Okta/Entra/Google themselves and we get out of the loop. It is a Draft PRD: the genuine forks sit as threads on the sentences they decide.",
   "tags": ["sso", "enterprise", "self-serve", "identity"],
   "stage": "Draft PRD",
-  "nextAction": "Answer Q1–Q3 in the cards below. Q1 (SAML-only vs SAML+OIDC) gates the whole data model; nothing downstream is worth scoping until it lands.",
+  "nextAction": "Answer the Q1–Q3 threads on the Proposed shape. Q1 (SAML-only vs SAML+OIDC) gates the whole data model; nothing downstream is worth scoping until it lands.",
   "owner": "growth-platform",
   "tabs": ["PRD", "Progress", "Ledger"]
 }
 ---
-
-:::callout {"tone": "amber", "strong": "Draft — needs answers:"}
-This is a scoping draft, not an approved plan. The three forks below are real, non-obvious,
-and downstream scope depends on them. Answer them in the cards (Approve the recommendation,
-Disapprove, or type a custom answer) and the doc advances to a scoped PRD.
-:::
-
-## Open questions
-
-:::questions
-- id: Q1
-  title: SAML-only for v1, or SAML + OIDC together?
-  question: Every enterprise IdP speaks SAML 2.0, but our three loudest prospects (and the modern default) lean OIDC. Supporting both from day one roughly doubles the config surface, the test matrix, and the metadata-parsing code — and the two protocols disagree about where identity lives (assertions vs claims). Shipping SAML-only is faster and covers 100% of the asks today, but we'd be back here within a quarter when the OIDC requests land.
-  recommendation: SAML-only for v1, with the data model deliberately protocol-agnostic (store a normalized IdentityBinding, not raw SAML). OIDC becomes a second adapter onto the same model, not a rewrite. Ship the thing that closes deals now without painting us into a corner.
-  tag: protocol
-- id: Q2
-  title: Who can configure SSO — and what happens to existing password logins after it's on?
-  question: This is the dangerous one. If any org admin can flip on SSO and we hard-disable password auth, a misconfigured IdP locks the entire org out of Drift — including the admin who set it up. But if we leave password auth permanently enabled as a fallback, SSO is security theater: the company's offboarding still doesn't actually revoke Drift access. There's a real tension between lockout-safety and the security guarantee enterprises are buying.
-  recommendation: Restrict config to Owner-role only, and ship a two-phase cutover — SSO goes live in "enforced for everyone except break-glass owners" mode first; passwords for non-owners are disabled, but owners retain a password fallback until they explicitly click "fully enforce." A clear, reversible path to the strong guarantee instead of a one-way switch.
-  tag: security
-- id: Q3
-  title: Just-in-time provisioning, or pre-provisioned accounts only?
-  question: With JIT, the first time a user authenticates through the IdP we create their Drift account on the fly from the assertion — zero pre-work, but we trust whatever the IdP sends and seats can balloon (and so can the bill) without an admin in the loop. Pre-provisioning (SCIM or manual) means accounts must exist before first login — tighter control over seats and roles, but it reintroduces the manual admin work SSO was supposed to remove.
-  recommendation: JIT for v1 with a hard org seat cap as the guardrail (auth succeeds, account creation is refused past the cap with a clear admin-facing error). It delivers the zero-touch experience that makes self-serve worth doing; SCIM becomes a fast-follow for the orgs that need deprovisioning automation.
-  tag: provisioning
-:::
 
 ## Problem
 
@@ -55,7 +29,30 @@ Disapprove, or type a custom answer) and the doc advances to a scoped PRD.
 We have three signed LOIs contingent on org-wide rollout, and all three rollouts are parked
 on SSO. This isn't a someday-platform feature; it's the thing unblocking committed revenue.
 
-## Proposed shape (pending the forks)
+## Proposed shape
+
+v1 ships SAML only, on a protocol-agnostic identity binding, so OIDC later is a second adapter rather than a rewrite. Only the Owner role configures SSO, and cutover runs in two phases: passwords turn off for everyone except break-glass owners first, and full enforcement is a separate, explicit click. Accounts are created just in time at first login, capped by a hard org seat limit; SCIM deprovisioning is the fast-follow.
+
+:::questions
+- id: Q1
+  title: SAML-only for v1, or SAML + OIDC together?
+  quote: v1 ships SAML only, on a protocol-agnostic identity binding, so OIDC later is a second adapter rather than a rewrite.
+  question: Every enterprise IdP speaks SAML 2.0, but our three loudest prospects (and the modern default) lean OIDC. Supporting both from day one roughly doubles the config surface, the test matrix, and the metadata-parsing code — and the two protocols disagree about where identity lives (assertions vs claims). Shipping SAML-only is faster and covers 100% of the asks today, but we'd be back here within a quarter when the OIDC requests land.
+  recommendation: SAML-only for v1, with the data model deliberately protocol-agnostic (store a normalized IdentityBinding, not raw SAML). OIDC becomes a second adapter onto the same model, not a rewrite. Ship the thing that closes deals now without painting us into a corner.
+  tag: protocol
+- id: Q2
+  title: Who can configure SSO — and what happens to existing password logins after it's on?
+  quote: Only the Owner role configures SSO, and cutover runs in two phases: passwords turn off for everyone except break-glass owners first, and full enforcement is a separate, explicit click.
+  question: This is the dangerous one. If any org admin can flip on SSO and we hard-disable password auth, a misconfigured IdP locks the entire org out of Drift — including the admin who set it up. But if we leave password auth permanently enabled as a fallback, SSO is security theater: the company's offboarding still doesn't actually revoke Drift access. There's a real tension between lockout-safety and the security guarantee enterprises are buying.
+  recommendation: Restrict config to Owner-role only, and ship a two-phase cutover — SSO goes live in "enforced for everyone except break-glass owners" mode first; passwords for non-owners are disabled, but owners retain a password fallback until they explicitly click "fully enforce." A clear, reversible path to the strong guarantee instead of a one-way switch.
+  tag: security
+- id: Q3
+  title: Just-in-time provisioning, or pre-provisioned accounts only?
+  quote: Accounts are created just in time at first login, capped by a hard org seat limit; SCIM deprovisioning is the fast-follow.
+  question: With JIT, the first time a user authenticates through the IdP we create their Drift account on the fly from the assertion — zero pre-work, but we trust whatever the IdP sends and seats can balloon (and so can the bill) without an admin in the loop. Pre-provisioning (SCIM or manual) means accounts must exist before first login — tighter control over seats and roles, but it reintroduces the manual admin work SSO was supposed to remove.
+  recommendation: JIT for v1 with a hard org seat cap as the guardrail (auth succeeds, account creation is refused past the cap with a clear admin-facing error). It delivers the zero-touch experience that makes self-serve worth doing; SCIM becomes a fast-follow for the orgs that need deprovisioning automation.
+  tag: provisioning
+:::
 
 :::cards
 ### Configurator

@@ -192,14 +192,6 @@ export function answerText(a) {
   return comment; // custom
 }
 
-/**
- * Apply gate-shaped answers ([{id, decision, comment}]) to a PRD package:
- * write `answer:` fields into the :::questions records, append a [Decided]
- * row per answer to the :::decisions block (created after the questions block
- * when absent), append ledger events, bump state.json, and re-render.
- *
- * Returns { applied: [...], skipped: [...], remainingOpen }.
- */
 export function applyAnswers(root, slug, answers, { who = "author" } = {}) {
   const prd = locatePrd(root, slug);
   const raw = readFileSync(prd.srcAbs, "utf8");
@@ -248,46 +240,13 @@ export function applyAnswers(root, slug, answers, { who = "author" } = {}) {
     else lines.splice(t.rec.last + 1, 0, fieldLine);
   }
 
-  // Append [Decided] rows to the decisions block (create one after the
-  // questions block if the doc has none) — newest decisions land at the tail,
-  // which is exactly what the renderer keeps visible.
-  const today = new Date().toISOString().slice(0, 10);
-  const rows = targets.map(
-    (t) => `${(t.rec.title || t.id).replace(/\s*::\s*/g, " — ")} :: [Decided ${today}] ${t.text}`,
-  );
-  if (rows.length) {
-    let decOpen = -1;
-    for (let i = 0; i < lines.length; i++) {
-      if (/^:::decisions\b/.test(lines[i].trim())) {
-        decOpen = i;
-        break;
-      }
-    }
-    if (decOpen !== -1) {
-      let decClose = -1;
-      for (let i = decOpen + 1; i < lines.length; i++) {
-        if (lines[i].trim() === ":::") {
-          decClose = i;
-          break;
-        }
-      }
-      if (decClose !== -1) lines.splice(decClose, 0, ...rows);
-    } else {
-      // No decisions block yet: create one right after the questions block
-      // close (attention order: questions, then decisions, then content).
-      const refreshed = parseQuestionsBlock(lines);
-      const insertAt = refreshed ? refreshed.end + 1 : lines.length;
-      lines.splice(insertAt, 0, "", ":::decisions", ...rows, ":::");
-    }
-  }
-
   writeFileSync(prd.srcAbs, lines.join("\n"));
 
   for (const t of targets) {
     appendLedger(prd.ledgerAbs, {
       event: "question_answered",
       actor: who,
-      summary: `${t.id} ${t.a.decision || "custom"}${t.a.comment ? ` — ${t.a.comment}` : ""}`,
+      summary: `${t.id} ${(t.rec.title || "").trim() || t.a.decision || "custom"} — decided: ${t.text}`,
     });
     applied.push({ id: t.id, decision: t.a.decision || "custom" });
   }

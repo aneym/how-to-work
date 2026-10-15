@@ -258,7 +258,7 @@ const TAB_SCRIPT = `<script>
 
   /* ----- interactive question cards (How To Work review controls) ----- */
   (function () {
-    var groups = document.querySelectorAll("[data-qstack]");
+    var groups = document.querySelectorAll("[data-qgroup]");
     if (!groups.length) return;
     var docKey = "hwq:" + location.pathname;
     var docTitle =
@@ -325,7 +325,7 @@ const TAB_SCRIPT = `<script>
     }
     var state = loadState();
     groups.forEach(function (group) {
-      var cards = [].slice.call(group.querySelectorAll("[data-qcard]"));
+      var cards = [].slice.call(group.querySelectorAll("[data-qthread]"));
       var answerable = cards.filter(function (c) {
         return c.querySelector("[data-qactions]");
       });
@@ -988,48 +988,10 @@ function withSectionNav(html) {
   return `<nav class="secnav" aria-label="On this tab">${links}</nav>\n${html}`;
 }
 
-// Attention-ordering law, enforced by the RENDERER (not author discipline):
-// open grill cards are the page's action surface, so any :::questions block
-// with at least one unanswered record is moved — together with its immediately
-// preceding ## heading — to the very top of the first content tab. Nothing may
-// render above an open ask except the shell header and an urgent execution
-// banner (leading red-tone :::callout), which keeps its position.
-function isOpenQuestionsBlock(node) {
-  return (
-    node.type === "block" &&
-    node.name === "questions" &&
-    parseRecords(node.raw).some((q) => !q.answer)
-  );
-}
-function isUrgentBanner(node) {
-  return (
-    node.type === "block" && node.name === "callout" && node.opts?.tone === "red"
-  );
-}
-function hoistOpenQuestions(nodes) {
-  const rest = [...nodes];
-  const hoisted = [];
-  for (let i = 0; i < rest.length; ) {
-    if (isOpenQuestionsBlock(rest[i])) {
-      const withHeading = i > 0 && rest[i - 1].type === "h2";
-      const start = withHeading ? i - 1 : i;
-      hoisted.push(...rest.splice(start, withHeading ? 2 : 1));
-      i = start;
-    } else i++;
-  }
-  if (!hoisted.length) return nodes;
-  let cut = 0;
-  while (cut < rest.length && isUrgentBanner(rest[cut])) cut++;
-  return [...rest.slice(0, cut), ...hoisted, ...rest.slice(cut)];
-}
-
-function renderTabContent(text, parentSlug, { hoist = false } = {}) {
-  const prep = (t, applyHoist) => {
-    const nodes = parseNodes(t);
-    return applyHoist ? hoistOpenQuestions(nodes) : nodes;
-  };
+function renderTabContent(text, parentSlug) {
+  const prep = (t) => parseNodes(t);
   const nested = splitNestedTabs(text);
-  if (!nested) return withSectionNav(renderNodes(prep(text, hoist)));
+  if (!nested) return withSectionNav(renderNodes(prep(text)));
   const bar = nested
     .map(
       (n, idx) =>
@@ -1039,7 +1001,7 @@ function renderTabContent(text, parentSlug, { hoist = false } = {}) {
   const panels = nested
     .map(
       (n, idx) =>
-        `<section id="${parentSlug}--${slugify(n.name)}" class="subpanel${idx === 0 ? " active" : ""}" role="tabpanel" data-subpanel="${slugify(n.name)}">\n${withSectionNav(renderNodes(prep(n.text, hoist && idx === 0)))}\n</section>`,
+        `<section id="${parentSlug}--${slugify(n.name)}" class="subpanel${idx === 0 ? " active" : ""}" role="tabpanel" data-subpanel="${slugify(n.name)}">\n${withSectionNav(renderNodes(prep(n.text)))}\n</section>`,
     )
     .join("\n");
   return `<div class="subtabgroup" data-subtab-group="${parentSlug}"><div class="subtabs" role="tablist" aria-label="Nested sections">${bar}</div>${panels}</div>`;
@@ -1226,52 +1188,57 @@ function renderResources(rawLines) {
   return `<div class="rows">${inner}</div>`;
 }
 
-function renderQuestions(rawLines) {
-  const records = parseRecords(rawLines);
-  const open = records.filter((q) => !q.answer);
-  const resolved = records.filter((q) => q.answer);
-  const answerableCount = open.length;
-  // One question card. Open cards get live controls; the comment box is collapsed
-  // by default (most answers are a one-tap Approve) and reveals on Disapprove or
-  // via the inline Comment toggle — that keeps the stack compact.
-  const renderCard = (q) => {
-    const id = q.id ? `<span class="qid">${esc(q.id)}.</span> ` : "";
-    const tag = q.tag ? `<span class="qtag" data-qtag>${esc(q.tag)}</span>` : "";
-    const question = q.question ? `<p class="qq">${inline(q.question)}</p>` : "";
-    const rec = q.recommendation
-      ? `<p class="qrec"><strong>Recommendation:</strong> ${inline(q.recommendation)}</p>`
-      : "";
-    const qidAttr = ` data-qcard data-qid="${escAttr(q.id || "")}"`;
-    if (q.answer) {
-      const ans = `<p class="qanswer"><strong>Answer:</strong> ${inline(q.answer)}</p>`;
-      return `<article class="qcard"${qidAttr}><div class="qhead"><span class="qtitle">${id}${inline(q.title || "")}</span>${tag}</div>${question}${rec}${ans}</article>`;
-    }
-    const plainTitle = String(q.title || "")
-      .replace(/\*\*/g, "")
-      .replace(/`/g, "");
-    const meta = ` data-qtitle="${escAttr(plainTitle)}" data-qtagopen="${escAttr(q.tag || "open")}"`;
-    const controls = `<div class="qactions" data-qactions><button type="button" class="qbtn qapprove" data-decide="approve" aria-pressed="false">Approve</button><button type="button" class="qbtn qreject" data-decide="disapprove" aria-pressed="false">Disapprove</button></div><textarea class="qcomment" data-qcomment rows="2" placeholder="Type your answer or a comment…"></textarea>`;
-    return `<article class="qcard"${qidAttr}${meta}><div class="qhead"><span class="qtitle">${id}${inline(q.title || "")}</span>${tag}</div>${question}${rec}${controls}</article>`;
-  };
-  // Resolved questions always live in a collapsed <details> at the bottom — even
-  // when open ones remain — since users rarely re-read settled decisions.
-  const resolvedBlock = resolved.length
-    ? `<details class="qresolved"><summary>${resolved.length} question${resolved.length === 1 ? "" : "s"} resolved &#10003;</summary><div class="qstack">${resolved.map(renderCard).join("")}</div></details>`
+function renderThread(q, { detached = false } = {}) {
+  const id = q.id ? `<span class="qid">${esc(q.id)}.</span> ` : "";
+  const tag = q.tag ? `<span class="qtag" data-qtag>${esc(q.tag)}</span>` : "";
+  const question = q.question ? `<p class="qq">${inline(q.question)}</p>` : "";
+  const rec = q.recommendation
+    ? `<p class="qrec"><strong>Recommended:</strong> ${inline(q.recommendation)}</p>`
     : "";
-  if (answerableCount === 0) return resolvedBlock;
-  const openInner = open.map(renderCard).join("");
-  // The live "Submit to agent" button only renders when a gate is wired
-  // (answerGate.mode !== "none"). On a static host / no listening agent there is
-  // no endpoint, so Copy-answers is the round-trip and a dead button is omitted.
+  const plainTitle = String(q.title || "")
+    .replace(/\*\*/g, "")
+    .replace(/`/g, "");
+  const quote = detached && q.quote ? `<p class="qquote">Detached from: “${inline(q.quote)}”</p>` : "";
+  const attrs = ` data-qthread data-qid="${escAttr(q.id || "")}" data-qtitle="${escAttr(plainTitle)}" data-qtagopen="${escAttr(q.tag || "open")}"`;
+  const controls = `<div class="qactions" data-qactions><button type="button" class="qbtn qapprove" data-decide="approve" aria-pressed="false">Approve</button><button type="button" class="qbtn qreject" data-decide="disapprove" aria-pressed="false">Disapprove</button></div><textarea class="qcomment" data-qcomment rows="2" placeholder="Type your answer or a comment…"></textarea>`;
+  const cls = detached ? "qthread qdetached" : "qthread";
+  return `<aside class="${cls}"${attrs}><div class="qhead"><span class="qtitle">${id}${inline(q.title || "")}</span>${tag}</div>${quote}${question}${rec}${controls}</aside>`;
+}
+
+function threadKey(q) {
+  return `${q.id || ""}\u0000${q.quote || ""}\u0000${q.question || ""}`;
+}
+
+function renderQuestions(rawLines, anchored = new Set()) {
+  return parseRecords(rawLines)
+    .filter((q) => !q.answer && !anchored.has(threadKey(q)))
+    .map((q) => renderThread(q, { detached: true }))
+    .join("");
+}
+
+function anchorThreads(html, pending, anchored) {
+  let out = html;
+  const threads = [];
+  for (const q of pending) {
+    if (anchored.has(threadKey(q)) || !q.quote) continue;
+    const needle = [inline(q.quote), esc(q.quote)].find((n) => n && out.includes(n));
+    if (!needle) continue;
+    out = out.replace(needle, `<mark class="qanchor" data-qanchor="${escAttr(q.id || "")}">${needle}</mark>`);
+    threads.push(renderThread(q));
+    anchored.add(threadKey(q));
+  }
+  return threads.length ? `<div class="qanchored">${threads.join("")}${out}</div>` : out;
+}
+
+function answerBar(openCount) {
   const liveGate = GATE_MODE && GATE_MODE !== "none";
   const submitBtn = liveGate
     ? `<button type="button" class="qsubmit" data-qsubmit disabled>Submit to agent</button>`
     : "";
-  const bar = `<div class="qbar" data-qbar><span class="qcount" data-qcount>0 / ${answerableCount} answered</span><div class="qbar-actions"><button type="button" class="qclear" data-qclear>Clear</button><button type="button" class="qcopy" data-qcopy disabled>Copy answers</button>${submitBtn}</div></div>`;
   const banner = liveGate
-    ? `<div class="qasking" data-qasking hidden><span class="qdot"></span><span data-qasking-text>The agent is waiting for your answers — review and hit Submit.</span></div>`
+    ? `<div class="qasking" data-qasking hidden><span class="qdot"></span><span data-qasking-text>The agent is waiting for your answers — review the threads and hit Submit.</span></div>`
     : "";
-  return `<div class="qreview" data-qstack>${banner}${bar}<div class="qstack">${openInner}</div></div>${resolvedBlock}`;
+  return `${banner}<div class="qbar" data-qbar><span class="qcount" data-qcount>0 / ${openCount} answered</span><div class="qbar-actions"><button type="button" class="qclear" data-qclear>Clear</button><button type="button" class="qcopy" data-qcopy disabled>Copy answers</button>${submitBtn}</div></div>`;
 }
 function renderLedgerRecords(records) {
   const renderEvent = (e) => {
@@ -1429,7 +1396,7 @@ function renderBlock(node) {
     case "status":
       return renderStatusBlock(opts, raw);
     case "questions":
-      return renderQuestions(raw);
+      return renderQuestions(raw, node.anchored);
     case "progress":
       return renderProgressBlock(opts, raw);
     case "ledger":
@@ -1457,6 +1424,19 @@ function sectionAnchor(slug) {
 
 /** Render a list of nodes, wrapping content under each ## into <section data-doc-section>. */
 function renderNodes(nodes) {
+  const pending = nodes
+    .filter((n) => n.type === "block" && n.name === "questions")
+    .flatMap((n) => parseRecords(n.raw))
+    .filter((q) => !q.answer);
+  const anchored = new Set();
+  const chunks = nodes.map((node) => {
+    if (node.type === "prose") return anchorThreads(renderProse(node.lines), pending, anchored);
+    if (node.type === "block" && node.name !== "questions") {
+      const out = renderBlock(node);
+      return node.name === "html" ? out : anchorThreads(out, pending, anchored);
+    }
+    return null;
+  });
   let html = "";
   let inSection = false;
   const closeSection = () => {
@@ -1465,7 +1445,7 @@ function renderNodes(nodes) {
       inSection = false;
     }
   };
-  for (const node of nodes) {
+  nodes.forEach((node, i) => {
     if (node.type === "h2") {
       closeSection();
       html += `\n<section id="${sectionAnchor(slugify(node.text))}" data-doc-section="${slugify(node.text)}">\n<h2>${inline(node.text)}</h2>`;
@@ -1473,16 +1453,17 @@ function renderNodes(nodes) {
     } else if (node.type === "h3" || node.type === "h4") {
       html += `\n<${node.type}>${inline(node.text)}</${node.type}>`;
     } else {
-      let chunk = "";
-      if (node.type === "prose") chunk = renderProse(node.lines);
-      else if (node.type === "code")
-        chunk = `<pre><code>${esc(node.text)}</code></pre>`;
-      else if (node.type === "block") chunk = renderBlock(node);
+      let chunk = chunks[i] || "";
+      if (node.type === "code") chunk = `<pre><code>${esc(node.text)}</code></pre>`;
+      else if (node.type === "block" && node.name === "questions")
+        chunk = renderBlock({ ...node, anchored });
       if (chunk) html += "\n" + chunk;
     }
-  }
+  });
   closeSection();
-  return html.trim();
+  html = html.trim();
+  if (!pending.length) return html;
+  return `<div class="qthreads" data-qgroup>${html}${answerBar(pending.length)}</div>`;
 }
 
 // ---------------------------------------------------------------------------
@@ -1796,11 +1777,10 @@ ${BACK_LINK}
             (loose ? loose + "\n" : "") +
               (namedMap.get(tabNames[0].toLowerCase()) || ""),
             parentSlug,
-            { hoist: true },
           );
           present = true; // main tab always shown (carries the lede body)
         } else if (authored != null) {
-          content = renderTabContent(authored, parentSlug, { hoist: idx === 0 });
+          content = renderTabContent(authored, parentSlug);
           present = true;
         } else if (data.kind === KIND_PRD && key === "progress") {
           content = autoProgress(state, data.progress, data);
@@ -1843,9 +1823,7 @@ ${renderNextLine(data, state)}<div class="chips">${chips}</div>
     return wrapDoc(data, theme, header, main, script);
   }
 
-  // flat report — the whole body is the first (only) content surface, so the
-  // open-grill hoist applies here too.
-  main = withSectionNav(renderNodes(hoistOpenQuestions(parseNodes(body))));
+  main = withSectionNav(renderNodes(parseNodes(body)));
   const header = `<header>
 ${BACK_LINK}${packetBar}
 <h1>${esc(data.title)}</h1>
@@ -2627,11 +2605,10 @@ function cmdVerify(args) {
         "data-doc-source",
       ])
         if (!html.includes(attr)) fails.push(`missing hook ${attr}`);
-      // SEAM-10: dropped the Homebase-specific #ff5500 brand fingerprint (a host
-      // theme is configurable now); the structural .qcard assertion stays as the
-      // portable style-drift guard.
-      if (!html.includes(".qcard"))
+      if (!html.includes(".qthread"))
         fails.push("theme.css fingerprint missing (style drift)");
+      if (/class="q(stack|review|card)\b/.test(html))
+        fails.push("question stack rendered; open questions must be inline threads");
     }
     const route = routeFor(data);
     const expected =

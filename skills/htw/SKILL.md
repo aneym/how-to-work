@@ -23,7 +23,7 @@ The author should never have to pick a sub-skill. `/htw <anything>` bootstraps, 
 | ------------------------------------------------------------ | -------- | ----------- |
 | "write a doc on…", "explainer", "report", "map this system"  | `doc`    | `htw new report <slug>` → author source → `htw render <slug>` (auto-registers) |
 | "scope…", "PRD for…", "should we build…", a fuzzy feature    | `scope` → `how-to-work` | `htw new prd <slug>` → grill the real forks → Draft PRD |
-| "grill me", "what's blocking", open decisions on a doc       | `grill`  | cards in the doc → `htw grill ask --doc <slug> --apply` |
+| "grill me", "what's blocking", open decisions on a doc       | `grill`  | inline threads → `htw grill ask --doc <slug> --apply` |
 | "send it", "build it", "execute"                             | `how-to-work` send-it | gate check → `htw stage set <slug> approved`/`"in execution"` → worktree flow |
 | "update progress/stage/ledger", "mark done"                  | atomic commands | `htw stage set` / `htw ledger add` — never hand-edit state/ledger/HTML |
 | pasted answers ("Q1 approve…", shorthand, gate JSON)         | ingest   | `htw grill resolve <slug>` (stdin or --file) |

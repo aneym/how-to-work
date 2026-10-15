@@ -130,13 +130,15 @@ test("grill resolve applies a Copy-answers packet end to end", () => {
   const src = readFileSync(join(dir, "index.doc.md"), "utf8");
   assert.match(src, /answer: Approved — recommendation accepted\. managed only/);
   assert.match(src, /answer: use the durable workloop instead/);
-  assert.match(src, /Pick the database :: \[Decided \d{4}-\d{2}-\d{2}\]/);
+  assert.doesNotMatch(src, /Pick the database :: \[Decided/);
+  assert.doesNotMatch(src, /Pick the queue :: \[Decided/);
   const ledger = readFileSync(join(dir, "ledger.jsonl"), "utf8").trim().split("\n");
   assert.equal(ledger.length, 2);
-  assert.match(ledger[0], /"event":"question_answered"/);
-  // rendered page: no open cards left, 2 resolved
+  assert.match(ledger.join("\n"), /"event":"question_answered"/);
+  assert.match(ledger.join("\n"), /Pick the database — decided: Approved — recommendation accepted\. managed only/);
   const html = readFileSync(join(dir, "index.html"), "utf8");
-  assert.match(html, /2 questions resolved/);
+  const markup = html.slice(html.indexOf("<body"));
+  assert.doesNotMatch(markup, /<aside class="qthread|class="qstack|questions resolved/);
   assert.match(r.stdout, /0 questions still open/);
 });
 

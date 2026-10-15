@@ -51,7 +51,7 @@ This project uses the public \`aneym/how-to-work\` engine. Bootstrap, then route
 | --------------------------------------- | -------------------------------------------------------- |
 | "write a doc on…", "explainer", report  | doc protocol: \`htw new report <slug>\` → author → render |
 | "scope…", "draft PRD", new feature idea | scope protocol: \`htw new prd <slug>\` → grill → PRD      |
-| "grill me", open decisions              | grill protocol: cards in the doc + \`htw grill ask\`      |
+| "grill me", open decisions              | grill protocol: inline threads + \`htw grill ask\`        |
 | "send it", execute, build               | how-to-work send-it: stage set "In execution" first      |
 | stage/progress/ledger updates           | \`htw stage set\` / \`htw ledger add\` — never hand-edit  |
 | answers pasted in chat                  | \`htw grill resolve <slug>\` (reads stdin)                |
@@ -63,6 +63,7 @@ ${commandSignaturesMarkdown()}
 
 - Semantic source only (\`.doc.md\`); never hand-edit generated HTML.
 - \`state.json\` is the stage authority; move stages with \`htw stage set\`.
+- Open questions sit inline (2026-10-15; owner: "make sure you\'re leaving questions in line in the docs as well if they really need my questioning."): each is a \`:::questions\` record whose \`quote:\` is the exact sentence it is about, with a Recommended answer. No question stack and no decisions block; decisions go to the ledger. Only product, credential, outbound, spend or voice questions go to the owner; decide the rest and log them with \`htw ledger add\`.
 - After posting grill questions, start the gate: \`htw grill ask --doc <slug> --apply\`.
 - Serve before handoff; hand back the URL from \`htw link <path>\` (it verifies the listener).
 `;
@@ -83,10 +84,10 @@ Run the deterministic doctor first; it does everything mechanical. Your job is t
 
 1. \`npx --yes github:aneym/how-to-work doctor --json\` — read the full report.
 2. \`npx --yes github:aneym/how-to-work doctor --fix\` — applies mechanical fixes: restamp config (\`init --migrate --force\`), refresh interface shims, re-render + re-register + re-index stale docs, sync divergent frontmatter stages from state.json, scaffold missing state/ledger files.
-3. Re-run \`doctor --json\`. Anything left is a JUDGMENT item. Never silently decide these — grill the author (question cards in a maintenance doc, or direct questions in chat when the repo has no docs yet):
+3. Re-run \`doctor --json\`. Anything left is a JUDGMENT item. Never silently decide these — grill the author (inline threads in a maintenance doc, or direct questions in chat when the repo has no docs yet):
    - **Hand-authored PRD dirs** (index.html with no .doc.md): adopt (reverse-scaffold a source from the HTML + state.json), archive, or delete?
    - **Unmappable stage strings**: which canonical stage is each doc actually in?
-   - **Open questions rotting** (unanswered grill cards): still relevant? Re-ask via \`htw grill ask --apply\`, or fold into decisions?
+   - **Open questions rotting** (unanswered grill cards): still relevant? Re-ask via \`htw grill ask --apply\`, or decide and log with \`htw ledger add\`?
    - **Legacy how-we-work shims / configs**: remove?
 4. Apply the author's answers with the atomic commands (\`htw stage set\`, \`htw grill resolve\`, \`htw ledger add\`), never hand-edits.
 5. Closeout: \`doctor\` exits 0; report what changed, what was decided, and the served docs-index URL (\`htw link\`).

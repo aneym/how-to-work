@@ -479,13 +479,8 @@ li {
  * tone span on the value (.status = green "Decided" / .warn = amber "Open"),
  * so it reuses .row + .status/.warn above — no dedicated decision class. */
 
-/* Question cards */
-.qstack {
-  display: grid;
-  gap: 8px;
-  margin-top: 10px;
-}
-.qcard {
+/* Inline question threads */
+.qthread {
   background: var(--panel);
   border-radius: var(--radius);
   padding: 12px 13px;
@@ -494,7 +489,7 @@ li {
     box-shadow 0.18s ease,
     transform 0.18s ease;
 }
-.qcard:hover {
+.qthread:hover {
   box-shadow: var(--shadow-border-hover);
   transform: translateY(-1px);
 }
@@ -534,9 +529,42 @@ li {
   color: var(--muted);
 }
 
-/* Question card — interactive review controls */
-.qreview {
-  margin-top: 12px;
+.qanchor {
+  background: color-mix(in oklab, var(--amber) 22%, transparent);
+  color: inherit;
+  border-radius: 3px;
+  padding: 0 2px;
+}
+.qanchored {
+  display: flex;
+  flex-direction: column;
+}
+.qanchored > .qthread {
+  order: 1;
+  margin: 4px 0 10px;
+}
+.qthread p {
+  font-size: 13.5px;
+  line-height: 1.5;
+}
+.qdetached {
+  margin: 10px 0;
+}
+.qquote {
+  margin: 0 0 6px;
+  font-size: 12px;
+  color: var(--muted);
+}
+@media (min-width: 1000px) {
+  .qanchored {
+    display: flow-root;
+  }
+  .qanchored > .qthread {
+    float: right;
+    clear: right;
+    width: 280px;
+    margin: 4px 0 10px 20px;
+  }
 }
 .qbar {
   display: flex;
@@ -546,10 +574,9 @@ li {
   padding: 9px 12px;
   border: 1px solid var(--line);
   background: var(--soft);
-  /* Sticks to the top while scrolling through the questions section only:
-     the sticky container is .qreview, so it releases past the last card. */
+  margin-top: 16px;
   position: sticky;
-  top: 0;
+  bottom: 0;
   z-index: 5;
 }
 .qcount {
@@ -658,39 +685,6 @@ li {
   background: color-mix(in oklab, var(--green) 12%, transparent);
 }
 
-/* Fully-resolved questions: collapsed, low-emphasis, out of the way */
-.qresolved {
-  margin-top: 12px;
-  border: 1px solid var(--line);
-  background: var(--soft);
-  border-radius: var(--radius);
-}
-.qresolved > summary {
-  cursor: pointer;
-  padding: 9px 12px;
-  font-size: 12.5px;
-  font-weight: 650;
-  letter-spacing: 0.01em;
-  color: var(--muted);
-  list-style: none;
-}
-.qresolved > summary::-webkit-details-marker {
-  display: none;
-}
-.qresolved > summary::before {
-  content: "▸ ";
-}
-.qresolved[open] > summary::before {
-  content: "▾ ";
-}
-.qresolved[open] > summary {
-  border-bottom: 1px solid var(--line);
-}
-.qresolved > .qstack {
-  padding: 12px;
-  margin-top: 0;
-}
-
 /* "It's answer time" — lit-up state, driven by an open agent ask (polled) */
 .qasking {
   display: flex;
@@ -723,14 +717,14 @@ li {
     box-shadow: 0 0 0 0 transparent;
   }
 }
-.qreview.asking {
+.qthreads.asking {
   outline: 2px solid var(--accent);
   outline-offset: 6px;
 }
-.qreview.asking .qbar {
+.qthreads.asking .qbar {
   border-color: var(--accent);
 }
-.qreview.asking .qsubmit:not(:disabled) {
+.qthreads.asking .qsubmit:not(:disabled) {
   animation: qsubmitpulse 1.6s ease-in-out infinite;
 }
 @keyframes qsubmitpulse {
@@ -833,12 +827,12 @@ li {
 .qcomment[data-required="true"] {
   border-color: var(--amber);
 }
-.qcard[data-state="answered"] {
+.qthread[data-state="answered"] {
   box-shadow:
     0 0 0 1px var(--accent),
     0 4px 14px color-mix(in oklab, var(--fg) 6%, transparent);
 }
-.qcard[data-state="answered"] .qtag {
+.qthread[data-state="answered"] .qtag {
   border-color: var(--accent);
   color: var(--accent);
 }
@@ -1084,49 +1078,49 @@ li {
 /* `backwards` fill holds the start frame during the stagger delay, then releases
  * to normal styles after — so the :hover lift transform still works. */
 .grid > .card,
-.qstack > .qcard,
+.qthreads .qthread,
 section.card {
   animation: docCardIn 0.5s cubic-bezier(0.2, 0.7, 0.2, 1) backwards;
 }
 .grid > .card:nth-child(1),
-.qstack > .qcard:nth-child(1) {
+.qthreads .qthread:nth-child(1) {
   animation-delay: 0ms;
 }
 .grid > .card:nth-child(2),
-.qstack > .qcard:nth-child(2) {
+.qthreads .qthread:nth-child(2) {
   animation-delay: 70ms;
 }
 .grid > .card:nth-child(3),
-.qstack > .qcard:nth-child(3) {
+.qthreads .qthread:nth-child(3) {
   animation-delay: 140ms;
 }
 .grid > .card:nth-child(4),
-.qstack > .qcard:nth-child(4) {
+.qthreads .qthread:nth-child(4) {
   animation-delay: 210ms;
 }
 .grid > .card:nth-child(5),
-.qstack > .qcard:nth-child(5) {
+.qthreads .qthread:nth-child(5) {
   animation-delay: 280ms;
 }
 .grid > .card:nth-child(6),
-.qstack > .qcard:nth-child(6) {
+.qthreads .qthread:nth-child(6) {
   animation-delay: 350ms;
 }
 .grid > .card:nth-child(n + 7),
-.qstack > .qcard:nth-child(n + 7) {
+.qthreads .qthread:nth-child(n + 7) {
   animation-delay: 420ms;
 }
 @media (prefers-reduced-motion: reduce) {
   .grid > .card,
-  .qstack > .qcard,
+  .qthreads .qthread,
   section.card,
   .panel.active,
   .qdot,
-  .qreview.asking .qsubmit:not(:disabled) {
+  .qthreads.asking .qsubmit:not(:disabled) {
     animation: none;
   }
   .card,
-  .qcard {
+  .qthread {
     transition: none;
   }
 }

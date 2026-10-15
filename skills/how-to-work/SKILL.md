@@ -78,7 +78,7 @@ When the author says a PRD "needs to be reframed after we checkout" a linked PR,
 
 ## Required surfaces
 
-- **PRD tab:** problem, goal, non-goals, decisions, scope, requirements, acceptance criteria, risks, open blockers.
+- **PRD tab:** problem, goal, non-goals, scope, requirements, acceptance criteria, risks, open blockers.
 - **Progress tab:** current state, lifecycle stage (phase), task/resource tree, worker runs, blockers, next action.
 - **Ledger tab:** reverse-chron events from the first working-doc decision through execution closeout.
 - **Design system:** the engine owns the PRD shell and theme — warm neutral background, compact header, chips, exactly PRD/Progress/Ledger tabs, no blue focus ring, `1/2/3` keyboard tab shortcuts, question cards, the stage bar (lifecycle stage indicator), and the left-rail dot ledger timeline. The repo's `doc.themeFile` wins when set; otherwise the bundled default theme applies. Do not generate bespoke one-off PRD themes or alternate ledger cards.
@@ -95,24 +95,24 @@ The Problem statement stays inside the PRD tab. Do not make a separate Problem t
 
 The engine's PRD shell is canonical for this class of docs. The engine emits it from your `.doc.md` source, so author semantic source — not HTML — and avoid these regressions:
 
-- Do not wrap question cards inside each other. Each question is a sibling `<article class="qcard">...</article>` inside one `<div class="qstack">`.
+- Open questions are inline threads (`<aside class="qthread">` beside a `<mark class="qanchor">` sentence), never a stack of cards.
 - Do not preserve a Markdown body `# Title` inside the PRD tab. The shell header owns the title; strip the first H1 from rendered body content.
-- The engine's containers are: `<div class="qreview" data-qstack>` (wrapping the `<div class="qstack">` of question cards), `<section id="progress">`, and `<section id="ledger">`. (There is no `questions-block` or `prd-body` class — verify against `qreview`/`data-qstack`, not those names.)
+- The engine's containers are: `<div class="qthreads" data-qgroup>` (wrapping a tab that has open threads, with the answer bar at its foot), `<section id="progress">`, and `<section id="ledger">`.
 - Ledger uses the left-rail dot timeline: `.timeline` with sibling `.event` blocks. Do not use card-style ledger articles unless the author approves a redesign.
-- Verify generated HTML mechanically (`npx github:aneym/how-to-work verify`): no `</div><article class="qcard">`, no `<h1>` immediately after the questions block, all three tab buttons exist, and the served URL returns `200 text/html`.
+- Verify generated HTML mechanically (`npx github:aneym/how-to-work verify`): no `qstack`/`qreview`/`qcard` markup, all three tab buttons exist, and the served URL returns `200 text/html`.
 
 ## Grill protocol
 
-Put `Questions blocking the PRD` **at the very top of the PRD tab — nothing above the question stack but the shell header** while cards are open; the decisions block sits directly beneath, then content (split into tabs when a section earns it). What the author must read or act on always renders first. The full protocol lives in the `grill` skill — apply it here:
+**Questions sit inline in the doc** (2026-10-15; owner: "make sure you're leaving questions in line in the docs as well if they really need my questioning."). Each open question is a Q/A thread anchored on the exact sentence it is about, and that sentence states the Recommended answer. Write it as a `:::questions` record with a `quote:` field holding that sentence verbatim; the engine highlights the sentence and renders the thread beside it, with no question stack and no decisions block. A record whose quote is missing renders as a detached thread where the block sits; fix its quote. Answered records stop rendering, and `grill resolve` logs each decision to the ledger. Only questions that truly need the owner become threads (product, credential, outbound, spend or voice); decide the rest yourself and log them with `htw ledger add`. The full protocol lives in the `grill` skill — apply it here:
 
-- **Grill hygiene:** never post a card that is obvious, that you already have a high-confidence recommendation for, or that has a canonical best answer (security practice, spec, the field's convergent pattern, engineering convention) — decide it, record `[Decided] … (agent call, reversible)` in `:::decisions`. Cards are reserved for taste/preference forks only the author can settle: would two reasonable owners answer differently?
+- **Grill hygiene:** never post a card that is obvious, that you already have a high-confidence recommendation for, or that has a canonical best answer (security practice, spec, the field's convergent pattern, engineering convention) — decide it, write the decision into the body and log it with `htw ledger add`. Cards are reserved for taste/preference forks only the author can settle: would two reasonable owners answer differently?
 - Batch only independent questions; dependent questions happen one at a time.
-- Each card includes Problem, Question, and a Recommendation; stable IDs `Q1`, `Q2`, `Q3`.
+- Each thread includes its quote, the Question, and a Recommendation; stable IDs `Q1`, `Q2`, `Q3`.
 - **Never end a recommendation with a "Reply X to accept / X &lt;custom&gt;" line** — the recommendation ends with the actual recommendation. Cards are interactive (approve / disapprove + a custom answer per card) and auto-generate the reply shorthand via the Copy-answers button.
 - **After posting questions, START THE ANSWER GATE — never make the author copy-paste.** Run `npx --yes github:aneym/how-to-work grill ask --doc <slug> --apply` (foreground when you can wait, else background). It opens the ask so the doc's question section lights up ("the agent is waiting for your answers"), polls the gate, and — with `--apply` — writes the answers into every surface the moment the author clicks "Submit to agent". Gate behavior follows `answerGate.mode`: in `local`/`custom` mode, posting questions without starting the gate strands the submitted answers in the store (recover via `GET <answerGate.base>/result?key=<docKey>`); in `none` mode there is no server, so the Copy-answers button is the equivalent and a missing live gate is expected, not a bug.
-- **Answers that arrive in chat go through `htw grill resolve <slug>`** (pipe the pasted packet / shorthand / gate JSON to stdin). It writes the `answer:` fields, appends `[Decided]` rows to Decisions, appends ledger events, bumps state, and re-renders — one command, every surface. Never apply answers by hand-editing.
+- **Answers that arrive in chat go through `htw grill resolve <slug>`** (pipe the pasted packet / shorthand / gate JSON to stdin). It writes the `answer:` fields (closing those threads), logs each decision as a ledger event, bumps state, and re-renders — one command, every surface. Never apply answers by hand-editing.
 - **Every surface updates in the same pass — via the atomic commands, not memory.** `grill resolve`, `stage set`, and `ledger add` each mutate source + state + ledger + rendered HTML + catalog together, and `htw verify` fails stale or divergent surfaces. If you touched `.doc.md` directly (content edits), re-render immediately; `htw render` auto-registers.
-- **A custom or "idk" answer is not a close — refine, then re-grill.** Fold the intent into a sharpened recommendation and re-present that one card; pick the _minimal_ option that still makes the next action obvious. Only move a card into `:::decisions` (`[Decided <date>]`) once it is genuinely settled.
+- **A custom or "idk" answer is not a close — refine, then re-grill.** Fold the intent into a sharpened recommendation and re-present that one card; pick the _minimal_ option that still makes the next action obvious. Resolve a thread only once it is genuinely settled, and rewrite its sentence to state the decision.
 - **Feedback on a rendered surface edits the source, never the HTML.** A screenshot or comment on a rendered page → edit the `.doc.md` (+ `state.json`/`ledger.jsonl`), re-render, re-verify — the rendered page must never lag the latest decision. Prefer elegant `:::html` SVG diagrams (`box`/`arrow`/`svg-title`) for models and flows; lead with the conclusion; favor cards/rows/diagrams over walls of text.
 
 ## Companion `/doc`

@@ -171,15 +171,6 @@ async function stdinFallback({ key, slug, questions }) {
   return 0;
 }
 
-/**
- * htw grill resolve <slug> [--file <path>] [--who <name>]
- *
- * The ingestion half of the round-trip the fleet actually uses: the author
- * answers in chat (Copy-answers packet, shorthand, or gate JSON), and this ONE
- * command applies it everywhere — answer fields in the :::questions records, a
- * [Decided] row per answer in :::decisions, ledger events, state bump, and a
- * re-render (which auto-registers). Reads stdin when --file is absent.
- */
 async function runResolve({ root, args }) {
   const slug = args.filter((a) => !a.startsWith("--"))[0];
   if (!slug) {
@@ -208,7 +199,7 @@ async function runResolve({ root, args }) {
     process.stderr.write(`htw grill resolve: skipped ${s.id} — ${s.reason}\n`);
   process.stdout.write(
     `htw grill resolve: applied ${result.applied.length} answer${result.applied.length === 1 ? "" : "s"} to ${slug} ` +
-      `(source + decisions + ledger + state${result.renderStatus === 0 ? " + re-render" : "; RE-RENDER FAILED"}); ` +
+      `(source + ledger + state${result.renderStatus === 0 ? " + re-render" : "; RE-RENDER FAILED"}); ` +
       `${result.remainingOpen} question${result.remainingOpen === 1 ? "" : "s"} still open.\n`,
   );
   return result.renderStatus === 0 ? 0 : 1;
