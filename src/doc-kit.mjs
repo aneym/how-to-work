@@ -264,31 +264,108 @@ const TAB_SCRIPT = `<script>
     function pinFor(pop) {
       return document.querySelector('[data-qpin="' + pop.id + '"]');
     }
+    function anchorFor(pop) {
+      return document.querySelector('[data-qopen="' + pop.id + '"]');
+    }
+    function bounds(pop) {
+      var group = pop.closest("[data-qgroup]");
+      var bar = group && group.querySelector(".qbar");
+      var bottom = window.innerHeight;
+      if (bar) {
+        var br = bar.getBoundingClientRect();
+        if (br.top < bottom && br.bottom > 0) bottom = br.top;
+      }
+      return { top: 8, bottom: bottom - 8 };
+    }
+    function overlaps(a, b) {
+      return a.left < b.right && a.right > b.left && a.top < b.bottom && a.bottom > b.top;
+    }
+    function fit(pop, natural) {
+      var anchor = anchorFor(pop);
+      var pin = pinFor(pop);
+      var lines = anchor.getClientRects();
+      var first = lines[0] || anchor.getBoundingClientRect();
+      var last = pin ? pin.getBoundingClientRect() : lines[lines.length - 1] || first;
+      var mr = anchor.getBoundingClientRect();
+      var lim = bounds(pop);
+      return {
+        anchor: anchor,
+        pin: pin,
+        first: first,
+        last: last,
+        below: lim.bottom - Math.max(last.bottom, mr.bottom) - 8,
+        above: first.top - lim.top - 8,
+        need: Math.min(natural, 360),
+        lim: lim,
+        mr: mr,
+      };
+    }
     function place(pop) {
       var host = pop.closest(".qanchored");
-      var anchor = document.querySelector('[data-qopen="' + pop.id + '"]');
-      var pin = pinFor(pop);
-      if (!host || !anchor) return;
-      var hr = host.getBoundingClientRect();
-      var ar = (pin || anchor).getBoundingClientRect();
-      var mr = anchor.getBoundingClientRect();
-      var width = Math.min(360, hr.width);
-      var left = Math.max(0, Math.min(ar.left - hr.left - 12, hr.width - width));
+      if (!host || !anchorFor(pop)) return;
+      pop.style.maxHeight = "none";
+      pop.style.top = "0px";
+      var width = Math.min(360, host.getBoundingClientRect().width);
       pop.style.width = width + "px";
-      pop.style.left = left + "px";
-      pop.style.top = Math.max(ar.bottom, mr.bottom) - hr.top + 8 + "px";
+      var natural = pop.offsetHeight;
+      var f = fit(pop, natural);
+      if (f.below < f.need && f.above < f.need) {
+        window.scrollBy(0, f.first.top - (f.lim.bottom - f.lim.top) * 0.3);
+        f = fit(pop, natural);
+      }
+      var hr = host.getBoundingClientRect();
+      var others = [].slice
+        .call(host.querySelectorAll(".qpin"))
+        .filter(function (p) {
+          return p !== f.pin;
+        })
+        .map(function (p) {
+          return p.getBoundingClientRect();
+        });
+      function clampLeft(x) {
+        return Math.max(0, Math.min(x - hr.left, hr.width - width));
+      }
+      var lefts = [clampLeft(f.last.left - 12), clampLeft(f.first.left), clampLeft(hr.right - width), 0];
+      var sides = f.below >= f.need || f.below >= f.above ? ["below", "above"] : ["above", "below"];
+      var best = null;
+      sides.forEach(function (side) {
+        var room = side === "below" ? f.below : f.above;
+        var h = Math.min(natural, room);
+        if (h < Math.min(natural, 160)) return;
+        var top = side === "below" ? Math.max(f.last.bottom, f.mr.bottom) + 8 : f.first.top - 8 - h;
+        lefts.forEach(function (l) {
+          var rect = { left: hr.left + l, right: hr.left + l + width, top: top, bottom: top + h };
+          var clear = !others.some(function (o) {
+            return overlaps(rect, o);
+          });
+          var cand = { side: side, h: h, top: top, left: l, clear: clear };
+          if (!best || (clear && !best.clear)) best = cand;
+        });
+      });
+      if (!best) {
+        var h0 = Math.max(f.below, 160);
+        best = { side: "below", h: h0, top: Math.max(f.last.bottom, f.mr.bottom) + 8, left: lefts[0] };
+      }
+      pop.style.maxHeight = best.h + "px";
+      pop.style.left = best.left + "px";
+      pop.style.top = best.top - hr.top + "px";
+      pop.setAttribute("data-side", best.side);
     }
     function close() {
       if (!openPop) return;
       openPop.hidden = true;
       var pin = pinFor(openPop);
       if (pin) pin.setAttribute("aria-expanded", "false");
+      var anchor = anchorFor(openPop);
+      if (anchor) anchor.removeAttribute("data-active");
       openPop = null;
     }
     function open(pop) {
       if (openPop === pop) return close();
       close();
       pop.hidden = false;
+      var anchor = anchorFor(pop);
+      if (anchor) anchor.setAttribute("data-active", "");
       place(pop);
       var pin = pinFor(pop);
       if (pin) pin.setAttribute("aria-expanded", "true");

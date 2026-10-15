@@ -535,6 +535,20 @@ li {
   border-radius: 3px;
   padding: 0 2px;
 }
+.qjs .qanchor[data-qopen] {
+  background: transparent;
+  padding: 0;
+  text-decoration: underline 1px dotted color-mix(in oklab, var(--amber) 70%, transparent);
+  text-underline-offset: 4px;
+  transition: background 0.15s ease;
+}
+.qjs .qanchor[data-qopen]:hover {
+  background: color-mix(in oklab, var(--amber) 10%, transparent);
+}
+.qjs .qanchor[data-qopen][data-active] {
+  background: color-mix(in oklab, var(--amber) 22%, transparent);
+  text-decoration-color: transparent;
+}
 .qanchored {
   position: relative;
 }
@@ -591,6 +605,8 @@ li {
   position: absolute;
   z-index: 30;
   margin: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
   box-shadow:
     var(--shadow-border),
     0 12px 32px -8px rgb(0 0 0 / 0.28);
