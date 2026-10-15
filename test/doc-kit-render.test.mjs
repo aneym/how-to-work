@@ -204,8 +204,9 @@ test("open questions render as inline threads on their quoted sentence, never as
   assert.doesNotMatch(markup, /\[Decided/);
   assert.match(
     markup,
-    /<div class="qanchored"><aside class="qthread" data-qthread data-qid="Q1"[^>]*>.*?<strong>Recommended:<\/strong> Web first\.<\/p>.*?<\/aside><p><mark class="qanchor" data-qanchor="Q1">We ship the web app first\.<\/mark> Phones follow/s,
+    /<div class="qanchored"><p><mark class="qanchor" data-qanchor="Q1" data-qopen="qt-q1">We ship the web app first\.<\/mark><button type="button" class="qpin" data-qpin="qt-q1"[^>]*>Q1<\/button> Phones follow.*?<aside class="qthread qpop" data-qthread data-qid="Q1"[^>]* id="qt-q1" data-qpop role="dialog"[^>]*>.*?<strong>Recommended:<\/strong> Web first\.<\/p>.*?<\/aside><\/div>/s,
   );
+  assert.doesNotMatch(html, /float:\s*right/);
   assert.match(markup, /<aside class="qthread qdetached" data-qthread data-qid="Q3"/);
   assert.equal(markup.match(/data-qthread data-qid="Q1"/g).length, 1);
   assert.doesNotMatch(markup, /data-qid="Q2"/);

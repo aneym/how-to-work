@@ -95,7 +95,7 @@ The Problem statement stays inside the PRD tab. Do not make a separate Problem t
 
 The engine's PRD shell is canonical for this class of docs. The engine emits it from your `.doc.md` source, so author semantic source — not HTML — and avoid these regressions:
 
-- Open questions are inline threads (`<aside class="qthread">` beside a `<mark class="qanchor">` sentence), never a stack of cards.
+- Open questions are floating comments: a `<button class="qpin">` right after its `<mark class="qanchor">` sentence opens the `<aside class="qthread">` as a popover over that spot, like Claude artifacts and Figma. Never a stack of cards, a comment sidebar or a margin column.
 - Do not preserve a Markdown body `# Title` inside the PRD tab. The shell header owns the title; strip the first H1 from rendered body content.
 - The engine's containers are: `<div class="qthreads" data-qgroup>` (wrapping a tab that has open threads, with the answer bar at its foot), `<section id="progress">`, and `<section id="ledger">`.
 - Ledger uses the left-rail dot timeline: `.timeline` with sibling `.event` blocks. Do not use card-style ledger articles unless the author approves a redesign.

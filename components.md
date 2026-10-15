@@ -119,10 +119,12 @@ Mono face :: [Open] System vs self-hosted
 ### 8. Inline question threads — `:::questions` (interactive)
 
 Records with `id / title / quote / question / recommendation / tag` render as
-`.qthread` asides anchored beside the body sentence that matches `quote`
-verbatim; that sentence gets a `.qanchor` highlight. On wide screens the thread
-sits in the right margin, on narrow screens directly under its sentence. An
-open thread has live **Approve / Disapprove** buttons and an answer textarea,
+floating comments pinned to the body sentence that matches `quote` verbatim,
+like Claude artifacts and Figma. That sentence gets a `.qanchor` highlight and
+a `.qpin` right after it. Clicking the pin or the sentence opens the `.qthread`
+as a popover over the spot, just below the sentence; one opens at a time, and
+Escape or a click outside closes it. On phones the popover spans the text
+column. There is never a comment sidebar or margin column. An open thread has live **Approve / Disapprove** buttons and an answer textarea,
 and the tab carries one sticky answer bar at its foot
 (`Clear / Copy answers / Submit to agent`). A record whose quote is not found
 renders as a `.qdetached` thread where the block sits. Answered records do not

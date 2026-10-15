@@ -256,6 +256,68 @@ const TAB_SCRIPT = `<script>
     });
   })();
 
+  (function () {
+    var pops = [].slice.call(document.querySelectorAll("[data-qpop]"));
+    if (!pops.length) return;
+    document.documentElement.classList.add("qjs");
+    var openPop = null;
+    function pinFor(pop) {
+      return document.querySelector('[data-qpin="' + pop.id + '"]');
+    }
+    function place(pop) {
+      var host = pop.closest(".qanchored");
+      var anchor = document.querySelector('[data-qopen="' + pop.id + '"]');
+      var pin = pinFor(pop);
+      if (!host || !anchor) return;
+      var hr = host.getBoundingClientRect();
+      var ar = (pin || anchor).getBoundingClientRect();
+      var mr = anchor.getBoundingClientRect();
+      var width = Math.min(360, hr.width);
+      var left = Math.max(0, Math.min(ar.left - hr.left - 12, hr.width - width));
+      pop.style.width = width + "px";
+      pop.style.left = left + "px";
+      pop.style.top = Math.max(ar.bottom, mr.bottom) - hr.top + 8 + "px";
+    }
+    function close() {
+      if (!openPop) return;
+      openPop.hidden = true;
+      var pin = pinFor(openPop);
+      if (pin) pin.setAttribute("aria-expanded", "false");
+      openPop = null;
+    }
+    function open(pop) {
+      if (openPop === pop) return close();
+      close();
+      pop.hidden = false;
+      place(pop);
+      var pin = pinFor(pop);
+      if (pin) pin.setAttribute("aria-expanded", "true");
+      openPop = pop;
+    }
+    pops.forEach(function (pop) {
+      pop.hidden = true;
+    });
+    document.addEventListener("click", function (e) {
+      var trigger = e.target.closest("[data-qpin], [data-qopen]");
+      if (trigger) {
+        var id = trigger.getAttribute("data-qpin") || trigger.getAttribute("data-qopen");
+        var pop = document.getElementById(id);
+        if (pop) open(pop);
+        return;
+      }
+      if (openPop && !openPop.contains(e.target)) close();
+    });
+    document.addEventListener("keydown", function (e) {
+      if (e.key !== "Escape" || !openPop) return;
+      var pin = pinFor(openPop);
+      close();
+      if (pin) pin.focus();
+    });
+    window.addEventListener("resize", function () {
+      if (openPop) place(openPop);
+    });
+  })();
+
   /* ----- interactive question cards (How To Work review controls) ----- */
   (function () {
     var groups = document.querySelectorAll("[data-qgroup]");
@@ -378,6 +440,8 @@ const TAB_SCRIPT = `<script>
           var done = isAnswered(card);
           if (done) answered++;
           card.setAttribute("data-state", done ? "answered" : "open");
+          var pin = card.id && document.querySelector('[data-qpin="' + card.id + '"]');
+          if (pin) pin.setAttribute("data-state", done ? "answered" : "open");
           var tag = card.querySelector("[data-qtag]");
           if (tag)
             tag.textContent = done
@@ -1201,8 +1265,13 @@ function renderThread(q, { detached = false } = {}) {
   const quote = detached && q.quote ? `<p class="qquote">Detached from: “${inline(q.quote)}”</p>` : "";
   const attrs = ` data-qthread data-qid="${escAttr(q.id || "")}" data-qtitle="${escAttr(plainTitle)}" data-qtagopen="${escAttr(q.tag || "open")}"`;
   const controls = `<div class="qactions" data-qactions><button type="button" class="qbtn qapprove" data-decide="approve" aria-pressed="false">Approve</button><button type="button" class="qbtn qreject" data-decide="disapprove" aria-pressed="false">Disapprove</button></div><textarea class="qcomment" data-qcomment rows="2" placeholder="Type your answer or a comment…"></textarea>`;
-  const cls = detached ? "qthread qdetached" : "qthread";
-  return `<aside class="${cls}"${attrs}><div class="qhead"><span class="qtitle">${id}${inline(q.title || "")}</span>${tag}</div>${quote}${question}${rec}${controls}</aside>`;
+  const cls = detached ? "qthread qdetached" : "qthread qpop";
+  const pop = detached ? "" : ` id="${escAttr(threadDomId(q))}" data-qpop role="dialog" aria-label="${escAttr(plainTitle)}"`;
+  return `<aside class="${cls}"${attrs}${pop}><div class="qhead"><span class="qtitle">${id}${inline(q.title || "")}</span>${tag}</div>${quote}${question}${rec}${controls}</aside>`;
+}
+
+function threadDomId(q) {
+  return `qt-${slugify(String(q.id || q.quote || "q"))}`;
 }
 
 function threadKey(q) {
@@ -1223,11 +1292,16 @@ function anchorThreads(html, pending, anchored) {
     if (anchored.has(threadKey(q)) || !q.quote) continue;
     const needle = [inline(q.quote), esc(q.quote)].find((n) => n && out.includes(n));
     if (!needle) continue;
-    out = out.replace(needle, `<mark class="qanchor" data-qanchor="${escAttr(q.id || "")}">${needle}</mark>`);
+    const target = escAttr(threadDomId(q));
+    const pin = `<button type="button" class="qpin" data-qpin="${target}" aria-controls="${target}" aria-expanded="false" aria-label="Open question ${escAttr(q.id || "")}">${esc(q.id || "?")}</button>`;
+    out = out.replace(
+      needle,
+      `<mark class="qanchor" data-qanchor="${escAttr(q.id || "")}" data-qopen="${target}">${needle}</mark>${pin}`,
+    );
     threads.push(renderThread(q));
     anchored.add(threadKey(q));
   }
-  return threads.length ? `<div class="qanchored">${threads.join("")}${out}</div>` : out;
+  return threads.length ? `<div class="qanchored">${out}${threads.join("")}</div>` : out;
 }
 
 function answerBar(openCount) {
