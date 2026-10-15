@@ -63,7 +63,7 @@ ${commandSignaturesMarkdown()}
 
 - Semantic source only (\`.doc.md\`); never hand-edit generated HTML.
 - \`state.json\` is the stage authority; move stages with \`htw stage set\`.
-- Open questions sit inline (2026-10-15; owner: "make sure you\'re leaving questions in line in the docs as well if they really need my questioning."): each is a \`:::questions\` record whose \`quote:\` is the exact sentence it is about, with a Recommended answer. No question stack and no decisions block; decisions go to the ledger. Only product, credential, outbound, spend or voice questions go to the owner; decide the rest and log them with \`htw ledger add\`.
+- Open questions sit inline (2026-10-15; owner: "make sure you\'re leaving questions in line in the docs as well if they really need my questioning."): each is a \`:::questions\` record whose \`quote:\` is the exact sentence it is about, with a Recommended answer; the engine pins it there and opens it as a floating popover over that spot, never a sidebar or margin column. No question stack and no decisions block; decisions go to the ledger. Only product, credential, outbound, spend or voice questions go to the owner; decide the rest and log them with \`htw ledger add\`.
 - After posting grill questions, start the gate: \`htw grill ask --doc <slug> --apply\`.
 - Serve before handoff; hand back the URL from \`htw link <path>\` (it verifies the listener).
 `;
