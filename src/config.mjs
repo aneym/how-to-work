@@ -99,3 +99,11 @@ export function loadConfig(root = process.cwd()) {
   merged.packageRoot = PACKAGE_ROOT;
   return merged;
 }
+
+export function retiredPointer(root = process.cwd()) {
+  for (const rel of [[".agents", "skill-config", "workflow", "config.json"], [".claude", "skill-config", "workflow", "config.json"]]) {
+    const retired = readJson(join(root, ...rel))?.retired;
+    if (typeof retired === "string" && retired.trim()) return retired.trim();
+  }
+  return null;
+}

@@ -2,7 +2,7 @@
 
 ## Unreleased
 
-- A repo can retire htw: a `retired` string in its workflow config makes every command except help and version print that pointer and exit 1.
+- A repo can retire htw: a `retired` string in its workflow config makes every command except help, version and interfaces print that pointer and exit 1, and `htw interfaces` writes retired skill and command shims that carry the pointer.
 
 ## 0.5.0
 

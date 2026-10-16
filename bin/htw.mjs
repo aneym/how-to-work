@@ -19,6 +19,7 @@
  */
 
 import { DOC_KIT_COMMANDS, commandHelpLines } from "../src/command-specs.mjs";
+import { retiredPointer } from "../src/config.mjs";
 
 const HELP = `htw — How To Work
 
@@ -95,22 +96,6 @@ async function warnOnDrift(root) {
   }
 }
 
-async function retiredPointer(root) {
-  try {
-    const { readFileSync, existsSync } = await import("node:fs");
-    const { join } = await import("node:path");
-    const path = [
-      join(root, ".agents", "skill-config", "workflow", "config.json"),
-      join(root, ".claude", "skill-config", "workflow", "config.json"),
-    ].find((p) => existsSync(p));
-    if (!path) return null;
-    const retired = JSON.parse(readFileSync(path, "utf8")).retired;
-    return typeof retired === "string" && retired.trim() ? retired.trim() : null;
-  } catch {
-    return null;
-  }
-}
-
 async function main() {
   const { resolve } = await import("node:path");
 
@@ -136,7 +121,7 @@ async function main() {
   // compare and prints ONE warning line with the exact fix. Drift used to be
   // detected only by an opt-in `htw check` nobody ran — hence a fleet spread
   // from 0.1.0 to 0.3.5.
-  const retired = await retiredPointer(root);
+  const retired = command === "interfaces" ? null : retiredPointer(root);
   if (retired) {
     process.stderr.write(`htw: retired in this repo. ${retired}\n`);
     process.exit(1);

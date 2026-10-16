@@ -13,6 +13,7 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { commandSignaturesMarkdown } from "./command-specs.mjs";
+import { retiredPointer } from "./config.mjs";
 
 const PACKAGE_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 
@@ -161,7 +162,41 @@ Intent:
 $ARGUMENTS
 `;
 
-function targets(v) {
+const RETIRED_SKILL = (name, v, pointer) => `---
+name: ${name}
+description: ${JSON.stringify(`Retired. ${pointer}`)}
+engineVersion: ${v}
+---
+
+${GENERATED(v)}
+
+# /${name} is retired
+
+${pointer}
+`;
+
+const RETIRED_COMMAND = (name, v, pointer) => `---
+description: ${JSON.stringify(`Retired. ${pointer}`)}
+---
+
+${GENERATED(v)}
+
+/${name} is retired. ${pointer}
+`;
+
+function targets(v, pointer = null) {
+  if (pointer) {
+    const out = [];
+    for (const rt of [".codex", ".claude", ".agents"]) {
+      for (const name of ["htw", "htw-doctor", "how-to-work"]) {
+        out.push([join(rt, "skills", name, "SKILL.md"), RETIRED_SKILL(name, v, pointer)]);
+      }
+      for (const name of ["htw", "htw-doctor", "how-to-work", "how-to"]) {
+        out.push([join(rt, "commands", `${name}.md`), RETIRED_COMMAND(name, v, pointer)]);
+      }
+    }
+    return out;
+  }
   const runtimes = [".codex", ".claude", ".agents"];
   const out = [];
   for (const rt of runtimes) {
@@ -180,7 +215,7 @@ export function installAgentInterfaces(root, { force = false } = {}) {
   const v = engineVersion();
   const written = [];
   const skipped = [];
-  for (const [rel, body] of targets(v)) {
+  for (const [rel, body] of targets(v, retiredPointer(root))) {
     const abs = join(root, rel);
     const content = body.endsWith("\n") ? body : `${body}\n`;
     if (existsSync(abs) && !force) {
@@ -201,7 +236,7 @@ export function auditAgentInterfaces(root) {
   const v = engineVersion();
   const missing = [];
   const stale = [];
-  for (const [rel, body] of targets(v)) {
+  for (const [rel, body] of targets(v, retiredPointer(root))) {
     const abs = join(root, rel);
     if (!existsSync(abs)) {
       missing.push(rel);
