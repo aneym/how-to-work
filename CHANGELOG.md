@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- A repo can retire htw: a `retired` string in its workflow config makes every command except help and version print that pointer and exit 1.
+
 ## 0.5.0
 
 - Added a single command registry for CLI signatures, help text, usage errors, and generated agent interfaces.
